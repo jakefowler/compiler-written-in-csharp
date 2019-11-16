@@ -1,1 +1,1 @@
-# Perl Like Compiler Written in C#
+# Pascal Like Compiler Written in C#

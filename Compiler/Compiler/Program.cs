@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Compiler.Models;
+using System;
+using static Compiler.Models.Scanner;
 
 namespace Compiler
 {
@@ -6,7 +8,13 @@ namespace Compiler
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            Scanner scanner = new Scanner("input-file.txt");
+            Token token = new Token();
+            while (token.Type != "EOFTOK")
+            {
+                token = scanner.GetNextToken();
+                Console.WriteLine("Token Type: " + token.Type + "\tLexeme: " + token.Lexeme + "\tLine#: " + token.Line + "\tColumn#: " + token.Column);
+            }
         }
     }
 }
