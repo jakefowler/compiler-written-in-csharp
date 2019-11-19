@@ -13,7 +13,7 @@ namespace Compiler
             while (token.Type != "EOFTOK")
             {
                 token = scanner.GetNextToken();
-                if (token.Type == "DOT" || token.Type == "EQL")
+                if (token.Type.Length < 4)
                 {
                     Console.WriteLine("Token Type: " + token.Type + "\t\tLexeme: " + token.Lexeme + "\tLine#: " + token.Line + "\tColumn#: " + token.Column);
                 }
