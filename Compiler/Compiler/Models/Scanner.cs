@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.IO;
 
 namespace Compiler.Models
@@ -6,8 +7,8 @@ namespace Compiler.Models
     internal class Scanner
     {
         private readonly string _filePath;
-        private int _curLineLoc;
-        private string _curLine;
+        private int _lineLoc;
+        private string _lineText;
         private int _lineNum;
         private bool _processingLine;
         public StreamReader Reader { get; set; }
@@ -54,48 +55,130 @@ namespace Compiler.Models
             _filePath = filePath;
             Reader = new StreamReader(filePath);
             _lineNum = 0;
-            _curLine = null;
+            _lineText = null;
         }
 
         public Token GetNextToken()
         {
             if (!Reader.EndOfStream || _processingLine)
             {
-                while (_curLine == null)
+                while (_lineText == null || _lineText == "")
                 {
-                    _curLine = Reader.ReadLine();
+                    _lineText = Reader.ReadLine();
                     _lineNum++;
                     _processingLine = true;
                 }
                 Token token = new Token
                 {
                     Line = _lineNum,
-                    Column = _curLineLoc
+                    Column = _lineLoc
                 };
-
-                while (_curLineLoc != _curLine.Length && _curLine[_curLineLoc] != ' ')
+                while (_lineLoc < _lineText.Length && _lineText[_lineLoc] == ' ' || _lineText[_lineLoc] == '\t')
                 {
-                    token.Lexeme += _curLine[_curLineLoc];
-                    _curLineLoc++;
+                    _lineLoc++;
                 }
-                _curLineLoc++;
-                if (_curLineLoc >= _curLine.Length)
+                if (_lineLoc < _lineText.Length)
                 {
-                    _curLine = null;
-                    _curLineLoc = 0;
+                    if (_lineLoc < _lineText.Length - 1)
+                    {
+                        if (_lineText[_lineLoc] == '/' && _lineText[_lineLoc + 1] == '/')
+                        {
+                            _lineText = Reader.ReadLine();
+                            _lineNum++;
+                            _processingLine = true;
+                        }
+                    }
+                    switch (_lineText[_lineLoc])
+                    {
+                        case '+':
+                            _lineLoc++;
+                            token.Lexeme = "+";
+                            token.Type = "PLUS";
+                            break;
+                        case '-':
+                            _lineLoc++;
+                            token.Lexeme = "-";
+                            token.Type = "MINUS";
+                            break;
+                        case '=':
+                            _lineLoc++;
+                            token.Lexeme = "=";
+                            token.Type = "EQL";
+                            break;
+                        case '(':
+                            _lineLoc++;
+                            token.Lexeme = "(";
+                            token.Type = "LPAREN";
+                            break;
+                        case ')':
+                            _lineLoc++;
+                            token.Lexeme = ")";
+                            token.Type = "RPAREN";
+                            break;
+                        case ';':
+                            _lineLoc++;
+                            token.Lexeme = ";";
+                            token.Type = "SEMICOLON";
+                            break;
+                        case ':':
+                            _lineLoc++;
+                            token.Lexeme = ":";
+                            token.Type = "COLON";
+                            break;
+                        case ',':
+                            _lineLoc++;
+                            token.Lexeme = ",";
+                            token.Type = "COMMA";
+                            break;
+                        case '[':
+                            _lineLoc++;
+                            token.Lexeme = "[";
+                            token.Type = "LBRACK";
+                            break;
+                        case ']':
+                            _lineLoc++;
+                            token.Lexeme = "]";
+                            token.Type = "RBRACK";
+                            break;
+                        case '.':
+                            _lineLoc++;
+                            token.Lexeme = ".";
+                            token.Type = "DOT";
+                            break;
+                    }
+                }
+                if (token.Lexeme == null)
+                {
+                    while (_lineLoc < _lineText.Length && _lineText[_lineLoc] != ' ' && (char.IsLetter(_lineText[_lineLoc]) || char.IsDigit(_lineText[_lineLoc])))
+                    {
+                        token.Lexeme += _lineText[_lineLoc];
+                        _lineLoc++;
+                    }
+                }
+                if (_lineLoc >= _lineText.Length)
+                {
+                    _lineText = null;
+                    _lineLoc = 0;
                     _processingLine = false;
                 }
-                if (ReservedWords.ContainsKey(token.Lexeme))
+                if (token.Lexeme != null && token.Type == null)
                 {
-                    token.Type = ReservedWords[token.Lexeme].ToString();
+                    if (ReservedWords.ContainsKey(token.Lexeme))
+                    {
+                        token.Type = ReservedWords[token.Lexeme].ToString();
+                    }
+                    else
+                    {
+                        token.Type = "IDENT";
+                    }
+                    return token;
                 }
-                else
+                if (token.Lexeme != null && token.Type != null)
                 {
-                    token.Type = "IDENT";
+                    return token;
                 }
-                return token;
             }
-            return new Token() { Type = "EOFTOK", Lexeme = "", Line = _lineNum, Column = _curLineLoc };
+            return new Token() { Type = "EOFTOK", Lexeme = "", Line = _lineNum, Column = _lineLoc };
         }
     }
 }
