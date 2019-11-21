@@ -131,7 +131,6 @@ namespace Compiler.Models
                             while(_lineText[_lineLoc] != '"')
                             {
                                 token.Lexeme += _lineText[_lineLoc];
-                                _lineLoc++;
                                 if (_lineLoc >= _lineText.Length - 1)
                                 {
                                     _lineText = Reader.ReadLine();
@@ -139,10 +138,14 @@ namespace Compiler.Models
                                     _lineLoc = 0;
                                     _processingLine = true;
                                 }
+                                _lineLoc++;
                             }
                             token.Lexeme += _lineText[_lineLoc];
                             _lineLoc++;
-                            // need to do end of line check
+                            if(_lineLoc >= _lineText.Length)
+                            {
+                                _lineText = null;
+                            }
                             return token;
                         }
                     }
@@ -247,7 +250,7 @@ namespace Compiler.Models
                 {
                     while (_lineLoc < _lineText.Length && _lineText[_lineLoc] != ' ' && (char.IsLetter(_lineText[_lineLoc]) || char.IsDigit(_lineText[_lineLoc]) || _lineText[_lineLoc] == '_'))
                     {
-                        token.Lexeme += _lineText[_lineLoc];
+                        token.Lexeme += char.ToLower(_lineText[_lineLoc]);
                         _lineLoc++;
                     }
                 }
