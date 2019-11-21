@@ -77,6 +77,7 @@ namespace Compiler.Models
                     Line = _lineNum,
                     Column = _lineLoc + 1
                 };
+                // can move this
                 if (_lineLoc < _lineText.Length)
                 {
                     if (_lineLoc < _lineText.Length - 1)
@@ -88,7 +89,66 @@ namespace Compiler.Models
                             _lineNum++;
                             _lineLoc = 0;
                             _processingLine = true;
+                            token.Line = _lineNum;
+                            token.Column = _lineLoc + 1;
                         }
+                    }
+                    // clear leading whitespace after new line
+                    while (_lineLoc < _lineText.Length && _lineText[_lineLoc] == ' ' || _lineText[_lineLoc] == '\t')
+                    {
+                        _lineLoc++;
+                        token.Column = _lineLoc + 1;
+                    }
+                    if (_lineLoc < _lineText.Length - 1)
+                    {
+                        // multi line comments
+                        if (_lineText[_lineLoc] == '/' && _lineText[_lineLoc + 1] == '*')
+                        {
+                            _lineLoc += 2;
+                            bool legalComment = false;
+                            while (!Reader.EndOfStream || _processingLine)
+                            {
+                                if (_lineLoc >= _lineText.Length)
+                                {
+                                    _lineText = Reader.ReadLine();
+                                    _lineNum++;
+                                    _lineLoc = 0;
+                                    _processingLine = true;
+                                    token.Line = _lineNum;
+                                    token.Column = _lineLoc + 1;
+                                }
+                                if(_lineText[_lineLoc] == '*' && _lineLoc < _lineText.Length - 1 && _lineText[_lineLoc + 1] == '/')
+                                {
+                                    _lineLoc += 2;
+                                    legalComment = true;
+                                    if (_lineLoc >= _lineText.Length)
+                                    {
+                                        _lineText = Reader.ReadLine();
+                                        _lineNum++;
+                                        _lineLoc = 0;
+                                        _processingLine = true;
+                                        token.Line = _lineNum;
+                                        token.Column = _lineLoc + 1;
+                                    }
+                                    break;
+                                }
+                                _lineLoc++;
+                                if (Reader.EndOfStream && _lineLoc >= _lineText.Length)
+                                {
+                                    _processingLine = false;
+                                    break;
+                                }
+                            }
+                            if (!legalComment)
+                            {
+                                token.Type = "ILLEGAL";
+                                return token;
+                            }
+
+                        }
+                    }
+                    if (_lineLoc < _lineText.Length - 1)
+                    { 
                         if (_lineText[_lineLoc] == '.' && _lineText[_lineLoc + 1] == '.')
                         {
                             token.Lexeme = "..";
@@ -105,6 +165,12 @@ namespace Compiler.Models
                         {
                             token.Lexeme = "<=";
                             token.Type = "LEQ";
+                            _lineLoc += 2;
+                        }
+                        else if (_lineText[_lineLoc] == '>' && _lineText[_lineLoc + 1] == '=')
+                        {
+                            token.Lexeme = ">=";
+                            token.Type = "GEQ";
                             _lineLoc += 2;
                         }
                         else if (_lineText[_lineLoc] == '<' && _lineText[_lineLoc + 1] == '>')
