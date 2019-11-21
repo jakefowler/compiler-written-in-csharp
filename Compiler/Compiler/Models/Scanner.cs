@@ -61,7 +61,7 @@ namespace Compiler.Models
         {
             if (!Reader.EndOfStream || _processingLine)
             {
-                while (_lineText == null || _lineText == "")
+                while (_lineText == null || _lineText == "" || _lineLoc >= _lineText.Length)
                 {
                     _lineText = Reader.ReadLine();
                     _lineNum++;
@@ -220,18 +220,18 @@ namespace Compiler.Models
                             while(_lineText[_lineLoc] != '"')
                             {
                                 token.Lexeme += _lineText[_lineLoc];
+                                if (Reader.EndOfStream && (_lineText == null || _lineLoc >= _lineText.Length - 1))
+                                {
+                                    _processingLine = false;
+                                    token.Type = "ILLEGAL";
+                                    return token;
+                                }
                                 if (_lineLoc >= _lineText.Length - 1)
                                 {
                                     _lineText = Reader.ReadLine();
                                     _lineNum++;
                                     _lineLoc = 0;
                                     _processingLine = true;
-                                }
-                                if (Reader.EndOfStream && (_lineText == null || _lineLoc >= _lineText.Length))
-                                {
-                                    _processingLine = false;
-                                    token.Type = "ILLEGAL";
-                                    return token;
                                 }
                                 _lineLoc++;
                             }

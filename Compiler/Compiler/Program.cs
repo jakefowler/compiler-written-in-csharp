@@ -8,7 +8,7 @@ namespace Compiler
     {
         static void Main(string[] args)
         {
-            Scanner scanner = new Scanner("stest2.pas");
+            Scanner scanner = new Scanner("bob.pas");
             Token token = new Token();
             while (token.Type != "EOFTOK")
             {
