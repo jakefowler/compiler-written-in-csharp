@@ -75,7 +75,7 @@ namespace Compiler.Models
                 Token token = new Token
                 {
                     Line = _lineNum,
-                    Column = _lineLoc
+                    Column = _lineLoc + 1
                 };
                 if (_lineLoc < _lineText.Length)
                 {
@@ -115,6 +115,16 @@ namespace Compiler.Models
                         }
                         else if (char.IsDigit(_lineText[_lineLoc]))
                         {
+                            if (_lineText[_lineLoc] == '0' && _lineLoc < _lineText.Length && char.IsDigit(_lineText[_lineLoc + 1]))
+                            {
+                                token.Type = "ILLEGAL";
+                                while (char.IsDigit(_lineText[_lineLoc]))
+                                {
+                                    token.Lexeme += _lineText[_lineLoc];
+                                    _lineLoc++;
+                                }
+                                return token;
+                            }
                             while (char.IsDigit(_lineText[_lineLoc]))
                             {
                                 token.Lexeme += _lineText[_lineLoc];
@@ -127,7 +137,6 @@ namespace Compiler.Models
                             token.Lexeme += '"';
                             token.Type = "STRCONST";
                             _lineLoc++;
-                            // need to finish adding strings
                             while(_lineText[_lineLoc] != '"')
                             {
                                 token.Lexeme += _lineText[_lineLoc];
