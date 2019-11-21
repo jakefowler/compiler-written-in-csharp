@@ -144,7 +144,21 @@ namespace Compiler.Models
                                 token.Type = "ILLEGAL";
                                 return token;
                             }
-
+                            // clear whitespace after multi line comment
+                            while (_lineLoc < _lineText.Length && _lineText[_lineLoc] == ' ' || _lineText[_lineLoc] == '\t')
+                            {
+                                _lineLoc++;
+                                token.Column = _lineLoc + 1;
+                                if (_lineLoc >= _lineText.Length)
+                                {
+                                    _lineText = Reader.ReadLine();
+                                    _lineNum++;
+                                    _lineLoc = 0;
+                                    _processingLine = true;
+                                    token.Line = _lineNum;
+                                    token.Column = _lineLoc + 1;
+                                }
+                            }
                         }
                     }
                     if (_lineLoc < _lineText.Length - 1)
