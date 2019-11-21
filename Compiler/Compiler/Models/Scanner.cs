@@ -227,6 +227,12 @@ namespace Compiler.Models
                                     _lineLoc = 0;
                                     _processingLine = true;
                                 }
+                                if (Reader.EndOfStream && (_lineText == null || _lineLoc >= _lineText.Length))
+                                {
+                                    _processingLine = false;
+                                    token.Type = "ILLEGAL";
+                                    return token;
+                                }
                                 _lineLoc++;
                             }
                             token.Lexeme += _lineText[_lineLoc];
