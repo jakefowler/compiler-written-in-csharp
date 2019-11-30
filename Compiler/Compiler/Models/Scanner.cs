@@ -3,7 +3,7 @@ using System.IO;
 
 namespace Compiler.Models
 {
-    internal class Scanner
+    internal partial class Scanner
     {
         private int _lineLoc;
         private string _lineText;
@@ -11,38 +11,38 @@ namespace Compiler.Models
         private bool _processingLine;
         public StreamReader Reader { get; set; }
 
-        public Hashtable ReservedWords = new Hashtable()
+        public static Hashtable ReservedWords = new Hashtable()
         {
-            { "and", "ANDOP" },
-            { "array", "ARRAYTOK" },
-            { "begin", "BEGINTOK" },
-            { "boolean", "BOOLTOK" },
-            { "case", "CASETOK" },
-            { "default", "DEFAULTTOK" },
-            { "do", "DOTOK" },
-            { "else", "ELSETOK" },
-            { "end", "ENDTOK" },
-            { "false", "FALSETOK" },
-            { "if", "IFTOK" },
-            { "int", "INTTOK" },
-            { "not", "NOTTOK" },
-            { "of", "OFTOK" },
-            { "or", "ORTOK" },
-            { "procedure", "PROCEDURE" },
-            { "program", "PROGRAM" },
-            { "read", "READTOK" },
-            { "string", "STRINGTOK" },
-            { "switch", "SWITCHTOK" },
-            { "then", "THENTOK" },
-            { "true", "TRUETOK" },
-            { "var", "VARTOK" },
-            { "while", "WHILETOK" },
-            { "write", "WRITETOK" },
+            { "and", Type.ANDOP },
+            { "array", Type.ARRAYTOK },
+            { "begin", Type.BEGINTOK },
+            { "boolean", Type.BOOLTOK },
+            { "case", Type.CASETOK },
+            { "default", Type.DEFAULTTOK },
+            { "do", Type.DOTOK },
+            { "else", Type.ELSETOK },
+            { "end", Type.ENDTOK },
+            { "false", Type.FALSETOK },
+            { "if", Type.IFTOK },
+            { "int", Type.INTTOK },
+            { "not", Type.NOTTOK },
+            { "of", Type.OFTOK },
+            { "or", Type.ORTOK },
+            { "procedure", Type.PROCEDURE },
+            { "program", Type.PROGRAM },
+            { "read", Type.READTOK },
+            { "string", Type.STRINGTOK },
+            { "switch", Type.SWITCHTOK },
+            { "then", Type.THENTOK },
+            { "true", Type.TRUETOK },
+            { "var", Type.VARTOK },
+            { "while", Type.WHILETOK },
+            { "write", Type.WRITETOK },
         };
 
         public struct Token
         {
-            public string Type;
+            public Type? Type;
             public string Lexeme;
             public int Line;
             public int Column;
@@ -137,7 +137,7 @@ namespace Compiler.Models
                         }
                         if (!legalComment)
                         {
-                            token.Type = "ILLEGAL";
+                            token.Type = Type.ILLEGAL;
                             return token;
                         }
                         // Clear whitespace after multi line comment
@@ -163,31 +163,31 @@ namespace Compiler.Models
                     if (_lineText[_lineLoc] == '.' && _lineText[_lineLoc + 1] == '.')
                     {
                         token.Lexeme = "..";
-                        token.Type = "RANGE";
+                        token.Type = Type.RANGE;
                         _lineLoc += 2;
                     }
                     else if (_lineText[_lineLoc] == ':' && _lineText[_lineLoc + 1] == '=')
                     {
                         token.Lexeme = ":=";
-                        token.Type = "ASSIGN";
+                        token.Type = Type.ASSIGN;
                         _lineLoc += 2;
                     }
                     else if (_lineText[_lineLoc] == '<' && _lineText[_lineLoc + 1] == '=')
                     {
                         token.Lexeme = "<=";
-                        token.Type = "LEQ";
+                        token.Type = Type.LEQ;
                         _lineLoc += 2;
                     }
                     else if (_lineText[_lineLoc] == '>' && _lineText[_lineLoc + 1] == '=')
                     {
                         token.Lexeme = ">=";
-                        token.Type = "GEQ";
+                        token.Type = Type.GEQ;
                         _lineLoc += 2;
                     }
                     else if (_lineText[_lineLoc] == '<' && _lineText[_lineLoc + 1] == '>')
                     {
                         token.Lexeme = "<>";
-                        token.Type = "NEQ";
+                        token.Type = Type.NEQ;
                         _lineLoc += 2;
                     }
                     // Integer constants and detecting if number starts with 0
@@ -195,7 +195,7 @@ namespace Compiler.Models
                     {
                         if (_lineText[_lineLoc] == '0' && _lineLoc < _lineText.Length && char.IsDigit(_lineText[_lineLoc + 1]))
                         {
-                            token.Type = "ILLEGAL";
+                            token.Type = Type.ILLEGAL;
                             while (char.IsDigit(_lineText[_lineLoc]))
                             {
                                 token.Lexeme += _lineText[_lineLoc];
@@ -208,13 +208,13 @@ namespace Compiler.Models
                             token.Lexeme += _lineText[_lineLoc];
                             _lineLoc++;
                         }
-                        token.Type = "INTCONST";
+                        token.Type = Type.INTCONST;
                     }
                     // String constants and making sure the string ends correctly
                     else if (_lineText[_lineLoc] == '"')
                     {
                         token.Lexeme += '"';
-                        token.Type = "STRCONST";
+                        token.Type = Type.STRCONST;
                         _lineLoc++;
                         while (_lineText[_lineLoc] != '"')
                         {
@@ -222,7 +222,7 @@ namespace Compiler.Models
                             if (Reader.EndOfStream && (_lineText == null || _lineLoc >= _lineText.Length - 1))
                             {
                                 _processingLine = false;
-                                token.Type = "ILLEGAL";
+                                token.Type = Type.ILLEGAL;
                                 return token;
                             }
                             if (_lineLoc >= _lineText.Length - 1)
@@ -251,91 +251,91 @@ namespace Compiler.Models
                         case '+':
                             _lineLoc++;
                             token.Lexeme = "+";
-                            token.Type = "PLUS";
+                            token.Type = Type.PLUS;
                             break;
 
                         case '-':
                             _lineLoc++;
                             token.Lexeme = "-";
-                            token.Type = "MINUS";
+                            token.Type = Type.MINUS;
                             break;
 
                         case '=':
                             _lineLoc++;
                             token.Lexeme = "=";
-                            token.Type = "EQL";
+                            token.Type = Type.EQL;
                             break;
 
                         case '(':
                             _lineLoc++;
                             token.Lexeme = "(";
-                            token.Type = "LPAREN";
+                            token.Type = Type.LPAREN;
                             break;
 
                         case ')':
                             _lineLoc++;
                             token.Lexeme = ")";
-                            token.Type = "RPAREN";
+                            token.Type = Type.RPAREN;
                             break;
 
                         case ';':
                             _lineLoc++;
                             token.Lexeme = ";";
-                            token.Type = "SEMICOLON";
+                            token.Type = Type.SEMICOLON;
                             break;
 
                         case ':':
                             _lineLoc++;
                             token.Lexeme = ":";
-                            token.Type = "COLON";
+                            token.Type = Type.COLON;
                             break;
 
                         case ',':
                             _lineLoc++;
                             token.Lexeme = ",";
-                            token.Type = "COMMA";
+                            token.Type = Type.COMMA;
                             break;
 
                         case '[':
                             _lineLoc++;
                             token.Lexeme = "[";
-                            token.Type = "LBRACK";
+                            token.Type = Type.LBRACK;
                             break;
 
                         case ']':
                             _lineLoc++;
                             token.Lexeme = "]";
-                            token.Type = "RBRACK";
+                            token.Type = Type.RBRACK;
                             break;
 
                         case '.':
                             _lineLoc++;
                             token.Lexeme = ".";
-                            token.Type = "DOT";
+                            token.Type = Type.DOT;
                             break;
 
                         case '<':
                             _lineLoc++;
                             token.Lexeme = "<";
-                            token.Type = "LESS";
+                            token.Type = Type.LESS;
                             break;
 
                         case '>':
                             _lineLoc++;
                             token.Lexeme = ">";
-                            token.Type = "GREATER";
+                            token.Type = Type.GREATER;
                             break;
 
                         case '*':
                             _lineLoc++;
                             token.Lexeme = "*";
-                            token.Type = "ASTRSK";
+                            token.Type = Type.ASTRSK;
                             break;
 
                         case '/':
                             _lineLoc++;
                             token.Lexeme = "/";
-                            token.Type = "SLASH";
+                            token.Type = Type.SLASH;
                             break;
                     }
                 }
@@ -359,11 +359,11 @@ namespace Compiler.Models
                 {
                     if (ReservedWords.ContainsKey(token.Lexeme))
                     {
-                        token.Type = ReservedWords[token.Lexeme].ToString();
+                        token.Type = (Type)ReservedWords[token.Lexeme];
                     }
                     else
                     {
-                        token.Type = "IDENT";
+                        token.Type = Type.IDENT;
                     }
                     return token;
                 }
@@ -374,12 +374,12 @@ namespace Compiler.Models
                 else
                 {
                     token.Lexeme += _lineText[_lineLoc];
-                    token.Type = "ILLEGAL";
+                    token.Type = Type.ILLEGAL;
                     _lineLoc++;
                     return token;
                 }
             }
-            return new Token() { Type = "EOFTOK", Lexeme = "", Line = _lineNum, Column = _lineLoc };
+            return new Token() { Type = Type.EOFTOK, Lexeme = "", Line = _lineNum, Column = _lineLoc };
         }
     }
 }

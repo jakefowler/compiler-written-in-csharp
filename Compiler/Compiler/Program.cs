@@ -10,10 +10,10 @@ namespace Compiler
         {
             Scanner scanner = new Scanner("bob.pas");
             Token token = new Token();
-            while (token.Type != "EOFTOK")
+            while (token.Type != Scanner.Type.EOFTOK)
             {
                 token = scanner.GetNextToken();
-                if (token.Type.Length < 4)
+                if (token.Type.ToString().Length < 4)
                 {
                     Console.WriteLine("Token Type: " + token.Type + "\t\tLexeme: " + token.Lexeme + "\tLine#: " + token.Line + "\tColumn#: " + token.Column);
                 }
