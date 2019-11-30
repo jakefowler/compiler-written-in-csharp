@@ -1,5 +1,6 @@
 ﻿using Compiler.Models;
 using System;
+using System.Diagnostics;
 using static Compiler.Models.Scanner;
 
 namespace Compiler
@@ -8,6 +9,8 @@ namespace Compiler
     {
         static void Main(string[] args)
         {
+            Stopwatch stopWatch = new Stopwatch();
+            stopWatch.Start();
             Scanner scanner = new Scanner("bob.pas");
             Token token = new Token();
             while (token.Type != Scanner.Type.EOFTOK)
@@ -22,6 +25,9 @@ namespace Compiler
                     Console.WriteLine("Token Type: " + token.Type + "\tLexeme: " + token.Lexeme + "\tLine#: " + token.Line + "\tColumn#: " + token.Column);
                 }
             }
+            stopWatch.Stop();
+            Console.WriteLine("Time Elapsed in Seconds: " + stopWatch.Elapsed.TotalSeconds);
+
         }
     }
 }
