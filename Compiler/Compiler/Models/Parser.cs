@@ -41,6 +41,11 @@ namespace Compiler.Models
             return true;
         }
 
+        public void WriteError(string message)
+        {
+            _errorFile.WriteLine("Error: " + message + ". Occured at Line: " + CurrentToken.Line + " Column: " + CurrentToken.Column);
+        }
+
         // <program> ::= program <identifier> ; <block> .
         public bool Program()
         {
@@ -66,13 +71,14 @@ namespace Compiler.Models
                 return false;
             }
             SetupFiles(programIdentifier);
+            GetNextToken();
             if (!Block())
             {
                 Console.WriteLine("Error in Block");
             }
             if (CurrentToken.Type != Scanner.Type.DOT)
             {
-                _errorFile.WriteLine("Didn't end program with dot");
+                WriteError("Didn't end program with dot");
                 return false;
             }
             return true;
@@ -83,11 +89,81 @@ namespace Compiler.Models
         //             <statement part>
         public bool Block()
         {
+            if (CurrentToken.Type == Scanner.Type.VARTOK)
+            {
+                if (!VariableDeclarationSection())
+                {
+                    return false;
+                }
+            }
+            if (CurrentToken.Type == Scanner.Type.PROCEDURE)
+            {
+                if (!Procedure())
+                {
+                    return false;
+                }
+            }
+            if (CurrentToken.Type == Scanner.Type.BEGINTOK)
+            {
+                if (!Statement())
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // <variable declaration section> ::= var <variable declaration> ; <more vars> | <empty-string>
+        public bool VariableDeclarationSection()
+        {
             return false;
         }
 
-        // <variable declaration part> ::= var <variable declaration> ; <more vars> | <empty-string>
+        // <more vars> ::= <variable declaration> ; <more vars> | <empty-string>
+        public bool MoreVariables()
+        {
+            return false;
+        }
+
+        // <variable declaration> ::= <identifier> <more decls>
         public bool VariableDeclaration()
+        {
+            return false;
+        }
+
+        // <more decls>	::=	: <type> | , <variable declaration>
+        public bool MoreDeclarations()
+        {
+            return false;
+        }
+
+        // <type> ::= <simple type> | <array type>
+        public bool Type()
+        {
+            return false;
+        }
+
+        // <array type> ::= array [ <index range> of <simple type>  
+        public bool ArrayType()
+        {
+            return false;
+        }
+
+        // <index range> ::= <integer constant> . . <integer constant> <index list>
+        public bool IndexRange()
+        {
+            return false;
+        }
+
+        // <index list>	::=	, <integer constant> . . <integer constant> <index list> | ]
+        public bool IndexList()
+        {
+            return false;
+        }
+
+        // <simple type> ::= <type identifier>
+        // <type identifier> ::= int | boolean | string
+        public bool SimpleType()
         {
             return false;
         }
