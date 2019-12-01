@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.IO;
 
 namespace Compiler.Models
@@ -53,6 +54,18 @@ namespace Compiler.Models
             Reader = new StreamReader(filePath);
             _lineNum = 0;
             _lineText = null;
+        }
+
+        public void PrintToken(Token token)
+        {
+            if (token.Type.ToString().Length < 4)
+            {
+                Console.WriteLine("Token Type: " + token.Type + "\t\tLexeme: " + token.Lexeme + "\tLine#: " + token.Line + "\tColumn#: " + token.Column);
+            }
+            else
+            {
+                Console.WriteLine("Token Type: " + token.Type + "\tLexeme: " + token.Lexeme + "\tLine#: " + token.Line + "\tColumn#: " + token.Column);
+            }
         }
 
         public Token GetNextToken()
