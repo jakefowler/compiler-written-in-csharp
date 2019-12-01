@@ -105,7 +105,7 @@ namespace Compiler.Models
             }
             if (CurrentToken.Type == Scanner.Type.BEGINTOK)
             {
-                if (!Statement())
+                if (!StatementSection())
                 {
                     return false;
                 }
@@ -117,48 +117,247 @@ namespace Compiler.Models
         // <variable declaration section> ::= var <variable declaration> ; <more vars> | <empty-string>
         public bool VariableDeclarationSection()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.VARTOK)
+            {
+                // var section is optional
+                return true;
+            }
+            else
+            {
+                GetNextToken();
+                if (!VariableDeclaration())
+                {
+                    WriteError("Variable Declaration returned false");
+                    return false;
+                }
+                if (CurrentToken.Type != Scanner.Type.SEMICOLON)
+                {
+                    WriteError("Didn't end variable declaration in semi colon");
+                    return false;
+                }
+                else
+                {
+                    GetNextToken();
+                    if (CurrentToken.Type == Scanner.Type.IDENT)
+                    {
+                        if (!MoreVariables())
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    else
+                    {
+                        // <empty-string>
+                        return true;
+                    }
+                }
+            }
         }
 
         // <more vars> ::= <variable declaration> ; <more vars> | <empty-string>
         public bool MoreVariables()
         {
-            return false;
+            if (!VariableDeclaration())
+            {
+                WriteError("Variable Declaration");
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.SEMICOLON)
+            {
+                WriteError("Didn't end variable declaration with a semi colon");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type == Scanner.Type.IDENT)
+            {
+                if (!MoreVariables())
+                {
+                    WriteError("More variables");
+                    return false;
+                }
+                return true;
+            }
+            // <empty-string>
+            return true;
         }
 
         // <variable declaration> ::= <identifier> <more decls>
         public bool VariableDeclaration()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.IDENT)
+            {
+                WriteError("Variable Declaration didn't contain an identifier");
+                return false;
+            }
+            Console.WriteLine("Identifier: " + CurrentToken.Lexeme);
+            GetNextToken();
+            if (!MoreDeclarations())
+            {
+                WriteError("MoreDeclarations");
+                return false;
+            }
+            return true;
         }
 
         // <more decls>	::=	: <type> | , <variable declaration>
         public bool MoreDeclarations()
         {
+            if (CurrentToken.Type == Scanner.Type.COLON)
+            {
+                GetNextToken();
+                if (!Type())
+                {
+                    WriteError("Type returned with error");
+                    return false;
+                }
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.COMMA)
+            {
+                GetNextToken();
+                if (!VariableDeclaration())
+                {
+                    WriteError("Variable Declaration returned an error");
+                    return false;
+                }
+                return true;
+            }
+            WriteError("More Declarations didn't find a colon or comma");
             return false;
         }
 
         // <type> ::= <simple type> | <array type>
         public bool Type()
         {
-            return false;
+            if (CurrentToken.Type == Scanner.Type.ARRAYTOK)
+            {
+                if (!ArrayType())
+                {
+                    return false;
+                }
+                return true;
+            }
+            else
+            {
+                if (!SimpleType())
+                {
+                    return false;
+                }
+                return true;
+            }
         }
 
         // <array type> ::= array [ <index range> of <simple type>  
         public bool ArrayType()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.ARRAYTOK)
+            {
+                WriteError("missing array keyword");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.LBRACK)
+            {
+                WriteError("Missing left square bracket");
+                return false;
+            }
+            GetNextToken();
+            if (!IndexRange())
+            {
+                WriteError("Index range returned an error");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.OFTOK)
+            {
+                WriteError("Missing of keyword after array[]");
+                return false;
+            }
+            GetNextToken();
+            if (!SimpleType())
+            {
+                WriteError("Error in simple type for array");
+                return false;
+            }
+            return true;
         }
 
         // <index range> ::= <integer constant> . . <integer constant> <index list>
         public bool IndexRange()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.INTCONST)
+            {
+                WriteError("Missing first integer for index range of array");
+                return false;
+            }
+            var lowerBound = CurrentToken.Lexeme;
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.RANGE)
+            {
+                WriteError("Missing range identifier .. in array");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.INTCONST)
+            {
+                WriteError("Missing last integer for index range of array");
+                return false;
+            }
+            var upperBound = CurrentToken.Lexeme;
+            GetNextToken();
+            Console.WriteLine("Array index " + lowerBound + " to " + upperBound + " to the symbol table");
+            if (!IndexList())
+            {
+                WriteError("Index list for array returned error");
+                return false;
+            }
+            return true;
         }
 
         // <index list>	::=	, <integer constant> . . <integer constant> <index list> | ]
         public bool IndexList()
         {
+            if (CurrentToken.Type != Scanner.Type.COMMA)
+            {
+                WriteError("Missing comma in index list");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.INTCONST)
+            {
+                WriteError("Missing int constant in index list");
+                return false;
+            }
+            var lowerBound = CurrentToken.Lexeme;
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.RANGE)
+            {
+                WriteError("Missing range identifier .. in array");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.INTCONST)
+            {
+                WriteError("Missing int constant in index list");
+                return false;
+            }
+            var upperBound = CurrentToken.Lexeme;
+            Console.WriteLine("Will save array index " + lowerBound + " to " + upperBound + " to the symbol table");
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.RBRACK)
+            {
+                if (!IndexList())
+                {
+                    WriteError("Nested index List returned false");
+                    return false;
+                }
+            }
+            else
+            {
+                GetNextToken();
+                return true;
+            }
             return false;
         }
 
@@ -166,6 +365,25 @@ namespace Compiler.Models
         // <type identifier> ::= int | boolean | string
         public bool SimpleType()
         {
+            if (CurrentToken.Type == Scanner.Type.INTTOK)
+            {
+                Console.WriteLine("Type: Int into the symbol table");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.BOOLTOK)
+            {
+                Console.WriteLine("Type: Boolean into the symbol table");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.STRINGTOK)
+            {
+                Console.WriteLine("Type: String into the symbol table");
+                GetNextToken();
+                return true;
+            }
+            WriteError("Missing simple type");
             return false;
         }
         #endregion
