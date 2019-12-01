@@ -388,44 +388,163 @@ namespace Compiler.Models
         #endregion
 
         #region Procedure Section
-        // <procedure declaration section> ::=	<procedure declaration> ; <procedure declaration part> | <empty-string>
+        // <procedure declaration section> ::=	<procedure declaration> ; <procedure declaration section> | <empty-string>
         public bool ProcedureDeclarationSection()
         {
-            return false;
+            if (!ProcedureDeclaration())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.SEMICOLON)
+            {
+                WriteError("Missing semi colon after procedure declaration");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type == Scanner.Type.PROCEDURE)
+            {
+                if (!ProcedureDeclarationSection())
+                {
+                    return false;
+                }
+            }
+            // <empty-string>
+            return true;
         }
         // <procedure declaration> ::= procedure <identifier> ( <parameter list> ; <block>
         public bool ProcedureDeclaration()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.PROCEDURE)
+            {
+                WriteError("Missing procedure keyword");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.IDENT)
+            {
+                WriteError("Missing procedure identifier");
+                return false;
+            }
+            var procIdentifier = CurrentToken.Lexeme;
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.LPAREN)
+            {
+                WriteError("Missing Left Parenthesis after procedure identifier");
+                return false;
+            }
+            GetNextToken();
+            if (!ParameterList())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.SEMICOLON)
+            {
+                WriteError("Missing semi colon after parameter list ()");
+                return false;
+            }
+            GetNextToken();
+            if (!Block())
+            {
+                WriteError("Block in procedure " + procIdentifier + "returned error");
+                return false;
+            }
+            return true;
         }
+
         // <parameter list>	::=	<type identifier> <param passing> | )
+        // <simple type> was combined with <type identifier>
         public bool ParameterList()
         {
-            return false;
+            if (CurrentToken.Type == Scanner.Type.RPAREN)
+            {
+                GetNextToken();
+                return true;
+            }
+            if (!SimpleType())
+            {
+                return false;
+            }
+            if (!ParameterPassing())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <param passing> ::= <pass by value> | * <pass by reference>
         public bool ParameterPassing()
         {
-            return false;
+            if (CurrentToken.Type == Scanner.Type.ASTRSK)
+            {
+                GetNextToken();
+                if (!PassByReference())
+                {
+                    return false;
+                }
+                return true;
+            }
+            if (!PassByValue())
+            {
+                return false;
+            }
+            return true;
         }
 
         //<pass by value> ::= <identifier> <more params>
         public bool PassByValue()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.IDENT)
+            {
+                WriteError("Missing Identifier in pass by value parameter");
+                return false;
+            }
+            GetNextToken();
+            if (!MoreParameters())
+            {
+                return false;
+            }
+            return true;
         }
 
         //<pass by reference>	::=	<identifier> <more params>
         public bool PassByReference()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.IDENT)
+            {
+                WriteError("Missing Identifier in pass by reference parameter");
+                return false;
+            }
+            if (!MoreParameters())
+            {
+                return false;
+            }
+            return true;
         }
 
         //<more params> ::= , <type identifier> <param passing> | )
+        // <simple type> was combined with <type identifier>
         public bool MoreParameters()
         {
-            return false;
+            if (CurrentToken.Type == Scanner.Type.RPAREN)
+            {
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type != Scanner.Type.COMMA)
+            {
+                WriteError("Missing comma inbetween paremeters");
+                return false;
+            }
+            GetNextToken();
+            if (!SimpleType())
+            {
+                return false;
+            }
+            if (!ParameterPassing())
+            {
+                return false;
+            }
+            return true;
         }
         #endregion
 
