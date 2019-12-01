@@ -98,7 +98,7 @@ namespace Compiler.Models
             }
             if (CurrentToken.Type == Scanner.Type.PROCEDURE)
             {
-                if (!Procedure())
+                if (!ProcedureDeclarationSection())
                 {
                     return false;
                 }
@@ -113,6 +113,7 @@ namespace Compiler.Models
             return true;
         }
 
+        #region Variable Section
         // <variable declaration section> ::= var <variable declaration> ; <more vars> | <empty-string>
         public bool VariableDeclarationSection()
         {
@@ -167,27 +168,238 @@ namespace Compiler.Models
         {
             return false;
         }
+        #endregion
 
-        // <procedure declaration part> ::=	<procedure declaration> ; <procedure declaration part> | <empty-string>
+        #region Procedure Section
+        // <procedure declaration section> ::=	<procedure declaration> ; <procedure declaration part> | <empty-string>
+        public bool ProcedureDeclarationSection()
+        {
+            return false;
+        }
         // <procedure declaration> ::= procedure <identifier> ( <parameter list> ; <block>
+        public bool ProcedureDeclaration()
+        {
+            return false;
+        }
         // <parameter list>	::=	<type identifier> <param passing> | )
-        // <param passing> ::= <pass by value> | * <pass by reference>
-        public bool Procedure()
+        public bool ParameterList()
         {
             return false;
         }
 
+        // <param passing> ::= <pass by value> | * <pass by reference>
+        public bool ParameterPassing()
+        {
+            return false;
+        }
+
+        //<pass by value> ::= <identifier> <more params>
+        public bool PassByValue()
+        {
+            return false;
+        }
+
+        //<pass by reference>	::=	<identifier> <more params>
+        public bool PassByReference()
+        {
+            return false;
+        }
+
+        //<more params> ::= , <type identifier> <param passing> | )
+        public bool MoreParameters()
+        {
+            return false;
+        }
+        #endregion
+
+        #region Statement Section
         //<statement part> ::= <compound statement>
         //<compound statement> ::= begin<statement> <more stmts> end
         // NOTE: The final statement before an END is not terminated by a semicolon.
+        public bool StatementSection()
+        {
+            return false;
+        }
         //<more stmts> ::= ; <statement> <more stmts> | <empty-string>
+        public bool MoreStatements()
+        {
+            return false;
+        }
         //<statement>	::=	<simple statement>  | <structured statement>
-        //<simple statement> ::= <assignment statement> | <procedure call> | <read statement> | <write statement>
-        //<assignment statement> ::= <variable> := <expression>
         public bool Statement()
         {
             return false;
         }
+        //<simple statement> ::= <assignment statement> | <procedure call> | <read statement> | <write statement>
+        public bool SimpleStatement()
+        {
+            return false;
+        }
+        //<assignment statement> ::= <variable> := <expression>
+        public bool AssignmentStatement()
+        {
+            return false;
+        }
+
+        // <procedure call>	::=	<procedure identifier> ( <arg list>
+        // <procedure identifier>	::=	<identifier>
+        public bool ProcedureCall()
+        {
+            return false;
+        }
+
+        // <arg list> ::= <expression> <more args> | )
+        public bool ArgumentList()
+        {
+            return false;
+        }
+
+        //<more args>	::=	, <expression> <more args> | )
+        public bool MoreArguments()
+        {
+            return false;
+        }
+
+        // <read statement>	::=	read ( <variable> )
+        public bool ReadStatement()
+        {
+            return false;
+        }
+
+        //<write statement>	::=	write( <expression> )
+        public bool WriteStatement()
+        {
+            return false;
+        }
+
+        // <structured statement>	::=	<compound statement>   |
+        //                              <if statement>   |
+        //                              <case statement>   |
+        //                              <while statement>
+        public bool StructuredStatement()
+        {
+            return false;
+        }
+
+        // <if statement> ::= if <expression> then <statement> <else part>
+        public bool IfStatement()
+        {
+            return false;
+        }
+
+        // <else part> ::= else <statement> | <empty-string>
+        public bool ElsePart()
+        {
+            return false;
+        }
+
+        // <case statement>	::=	switch ( <variable identifier> ) <case part>
+        public bool CaseStatement()
+        {
+            return false;
+        }
+
+        // <case part> ::= case <expression> : <compound statement> <case part> | default : <compound statement>
+        public bool CasePart()
+        {
+            return false;
+        }
+
+        // <while statement> ::= while <expression> do < compound statement>
+        public bool WhileStatement()
+        {
+            return false;
+        }
+
+        // <expression>	::=	<simple expression> <rel exp>
+        public bool Expression()
+        {
+            return false;
+        }
+        //<rel exp> ::= <rel op> <simple expression> | <empty-string>
+        public bool RelationalExpression()
+        {
+            return false;
+        }
+
+        // <simple expression> ::= <sign> <term> <add term>
+        public bool SimpleExpression()
+        {
+            return false;
+        }
+
+        // <add term> ::= <add op> <term> <add term> | <empty-string>
+        public bool AddTerm()
+        {
+            return false;
+        }
+
+        // <term> ::= <factor> <mul factor>
+        public bool Term()
+        {
+            return false;
+        }
+
+        // <mul factor>	::=	<mul op> <factor> <mul factor> | <empty-string>
+        public bool MultiplyFactor()
+        {
+            return false;
+        }
+
+        // <factor>	::=	<variable> | <constant> | (   <expression>   ) | not<factor>
+        public bool Factor()
+        {
+            return false;
+        }
+
+        // <rel op>	::=	= | <> | < | <= | >= | >
+        public bool RelationalOperator()
+        {
+            return false;
+        }
+
+        // <sign> ::= + | - | <empty-string>
+        public bool Sign()
+        {
+            return false;
+        }
+
+        // <add op>	::=	+ | - | or
+        public bool AddOperation()
+        {
+            return false;
+        }
+
+        // <mul op>	::=	* | / | and
+        public bool MultiplyOperation()
+        {
+            return false;
+        }
+
+        // <variable> ::= <variable identifier> <indexed var>
+        public bool Variable()
+        {
+            return false;
+        }
+
+        // <indexed var> ::=	[ <expression> <array idx> | <empty-string>
+        public bool IndexedVariable()
+        {
+            return false;
+        }
+
+        // <array idx> ::= , <expression> <array idx> | ]
+        public bool ArrayIndex()
+        {
+            return false;
+        }
+
+        // <variable identifier> ::= <identifier>
+        public bool VariableIdentifier()
+        {
+            return false;
+        }
+        #endregion
 
         // Read in the input file.
         // Generate two files.If the program's name (i.e., the identifier contained in the file) is 'xxx' then generate the following files:
