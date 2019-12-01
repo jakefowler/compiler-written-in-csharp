@@ -268,8 +268,20 @@ namespace Compiler.Models
                             break;
 
                         case '-':
-                            _lineLoc++;
                             token.Lexeme = "-";
+                            // negative integer constants
+                            if (_lineLoc < _lineText.Length - 1 && char.IsDigit(_lineText[_lineLoc + 1]))
+                            {
+                                _lineLoc++;
+                                while (char.IsDigit(_lineText[_lineLoc]) && _lineLoc < _lineText.Length)
+                                {
+                                    token.Lexeme += _lineText[_lineLoc];
+                                    _lineLoc++;
+                                }
+                                token.Type = Type.INTCONST;
+                                break;
+                            }
+                            _lineLoc++;
                             token.Type = Type.MINUS;
                             break;
 
