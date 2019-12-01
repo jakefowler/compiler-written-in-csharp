@@ -83,6 +83,13 @@ namespace Compiler.Models
                 while (_lineLoc < _lineText.Length && _lineText[_lineLoc] == ' ' || _lineText[_lineLoc] == '\t')
                 {
                     _lineLoc++;
+                    if (_lineLoc >= _lineText.Length)
+                    {
+                        _lineText = Reader.ReadLine();
+                        _lineNum++;
+                        _lineLoc = 0;
+                        _processingLine = true;
+                    }
                 }
                 Token token = new Token
                 {

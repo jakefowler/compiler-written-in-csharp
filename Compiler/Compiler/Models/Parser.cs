@@ -17,6 +17,8 @@ namespace Compiler.Models
             _scanner = scanner;
             _path = path;
             Program();
+            _errorFile.Close();
+            _assemblyFile.Close();
         }
 
         public bool GetNextToken()
@@ -268,7 +270,7 @@ namespace Compiler.Models
                 WriteError("Index range returned an error");
                 return false;
             }
-            GetNextToken();
+            //GetNextToken();
             if (CurrentToken.Type != Scanner.Type.OFTOK)
             {
                 WriteError("Missing of keyword after array[]");
@@ -318,6 +320,11 @@ namespace Compiler.Models
         // <index list>	::=	, <integer constant> . . <integer constant> <index list> | ]
         public bool IndexList()
         {
+            if (CurrentToken.Type == Scanner.Type.RBRACK)
+            {
+                GetNextToken();
+                return true;
+            }
             if (CurrentToken.Type != Scanner.Type.COMMA)
             {
                 WriteError("Missing comma in index list");
@@ -343,22 +350,14 @@ namespace Compiler.Models
                 return false;
             }
             var upperBound = CurrentToken.Lexeme;
-            Console.WriteLine("Will save array index " + lowerBound + " to " + upperBound + " to the symbol table");
+            Console.WriteLine("Array index " + lowerBound + " to " + upperBound + " to the symbol table");
             GetNextToken();
-            if (CurrentToken.Type != Scanner.Type.RBRACK)
+            if (!IndexList())
             {
-                if (!IndexList())
-                {
-                    WriteError("Nested index List returned false");
-                    return false;
-                }
+                WriteError("Nested index List returned false");
+                return false;
             }
-            else
-            {
-                GetNextToken();
-                return true;
-            }
-            return false;
+            return true;
         }
 
         // <simple type> ::= <type identifier>
