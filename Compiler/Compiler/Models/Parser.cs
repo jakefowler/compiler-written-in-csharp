@@ -20,7 +20,6 @@ namespace Compiler.Models
             _errorFile.Close();
             _assemblyFile.Close();
         }
-
         public bool GetNextToken()
         {
             CurrentToken = NextToken;
@@ -193,7 +192,7 @@ namespace Compiler.Models
                 WriteError("Variable Declaration didn't contain an identifier");
                 return false;
             }
-            Console.WriteLine("Identifier: " + CurrentToken.Lexeme);
+            Console.Write(CurrentToken.Lexeme + " ") ;
             GetNextToken();
             if (!MoreDeclarations())
             {
@@ -367,19 +366,25 @@ namespace Compiler.Models
         {
             if (CurrentToken.Type == Scanner.Type.INTTOK)
             {
-                Console.WriteLine("Type: Int into the symbol table");
+                //Console.WriteLine("Type: Int into the symbol table");
+                Console.Write("Type Int");
+                Console.WriteLine();
                 GetNextToken();
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.BOOLTOK)
             {
-                Console.WriteLine("Type: Boolean into the symbol table");
+                //Console.WriteLine("Type: Boolean into the symbol table");
+                Console.Write("Type Boolean");
+                Console.WriteLine();
                 GetNextToken();
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.STRINGTOK)
             {
-                Console.WriteLine("Type: String into the symbol table");
+                //Console.WriteLine("Type: String into the symbol table");
+                Console.Write("Type String");
+                Console.WriteLine();
                 GetNextToken();
                 return true;
             }
@@ -1173,13 +1178,13 @@ namespace Compiler.Models
             }
             if (CurrentToken.Type == Scanner.Type.INTCONST)
             {
-                Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
+                //Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
                 GetNextToken();
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.STRCONST)
             {
-                Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
+                //Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
                 GetNextToken();
                 return true;
             }
@@ -1404,7 +1409,7 @@ namespace Compiler.Models
                 WriteError("Identifier not found");
                 return false;
             }
-            Console.WriteLine(CurrentToken.Lexeme + " Identifier to be put into symbol table");
+            Console.WriteLine(CurrentToken.Lexeme + " Identifier to be put into symbol table ");
             GetNextToken();
             return true;
         }

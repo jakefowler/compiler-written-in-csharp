@@ -11,14 +11,14 @@ namespace Compiler
         {
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
-            Scanner scanner = new Scanner("bob.pas");
-            //Parser parser = new Parser(scanner);
-            Token token = new Token();
-            while (token.Type != Scanner.Type.EOFTOK)
-            {
-                token = scanner.GetNextToken();
-                scanner.PrintToken(token);
-            }
+            Scanner scanner = new Scanner("rude.pas");
+            Parser parser = new Parser(scanner);
+            //Token token = new Token();
+            //while (token.Type != Scanner.Type.EOFTOK)
+            //{
+            //    token = scanner.GetNextToken();
+            //    scanner.PrintToken(token);
+            //}
             stopWatch.Stop();
             Console.WriteLine("Time Elapsed in Seconds: " + stopWatch.Elapsed.TotalSeconds);
 
