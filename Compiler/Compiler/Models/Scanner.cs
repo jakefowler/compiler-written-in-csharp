@@ -68,51 +68,39 @@ namespace Compiler.Models
             }
         }
 
-        public Token GetNextToken()
+        public Token ClearWhitespaceAndComments(Token token)
         {
-            if (!Reader.EndOfStream || _processingLine)
+            while (!Reader.EndOfStream || _processingLine)
             {
-                // Clear whitespace before token
-                while (_lineText == null || _lineText == "" || _lineLoc >= _lineText.Length)
+                if (_lineText == null || _lineLoc >= _lineText.Length)
                 {
                     _lineText = Reader.ReadLine();
                     _lineNum++;
                     _lineLoc = 0;
                     _processingLine = true;
                 }
-                while (_lineLoc < _lineText.Length && _lineText[_lineLoc] == ' ' || _lineText[_lineLoc] == '\t')
+                // spaces and tabs
+                else if (_lineLoc < _lineText.Length && _lineText[_lineLoc] == ' ' || _lineText[_lineLoc] == '\t')
                 {
                     _lineLoc++;
-                    if (_lineLoc >= _lineText.Length)
-                    {
-                        _lineText = Reader.ReadLine();
-                        _lineNum++;
-                        _lineLoc = 0;
-                        _processingLine = true;
-                    }
                 }
-                Token token = new Token
-                {
-                    Line = _lineNum,
-                    Column = _lineLoc + 1
-                };
                 // Single line comments
-                if (_lineLoc < _lineText.Length - 1)
+                else if (_lineLoc < _lineText.Length - 1 && _lineText[_lineLoc] == '/' && _lineText[_lineLoc + 1] == '/')
                 {
-                    while (_lineText[_lineLoc] == '/' && _lineText[_lineLoc + 1] == '/')
+                    _lineText = Reader.ReadLine();
+                    _lineNum++;
+                    _lineLoc = 0;
+                    _processingLine = true;
+                    token.Line = _lineNum;
+                    token.Column = _lineLoc + 1;
+                }
+                // multi line comments
+                else if (_lineLoc < _lineText.Length - 1 && _lineText[_lineLoc] == '/' && _lineText[_lineLoc + 1] == '*')
+                {
+                    _lineLoc += 2;
+                    bool legalComment = false;
+                    while (!Reader.EndOfStream || _processingLine)
                     {
-                        _lineText = Reader.ReadLine();
-                        _lineNum++;
-                        _lineLoc = 0;
-                        _processingLine = true;
-                        token.Line = _lineNum;
-                        token.Column = _lineLoc + 1;
-                    }
-                    // Clear leading whitespace after new line
-                    while (_lineLoc < _lineText.Length && _lineText[_lineLoc] == ' ' || _lineText[_lineLoc] == '\t')
-                    {
-                        _lineLoc++;
-                        token.Column = _lineLoc + 1;
                         if (_lineLoc >= _lineText.Length)
                         {
                             _lineText = Reader.ReadLine();
@@ -122,70 +110,51 @@ namespace Compiler.Models
                             token.Line = _lineNum;
                             token.Column = _lineLoc + 1;
                         }
+                        if (_lineText[_lineLoc] == '*' && _lineLoc < _lineText.Length - 1 && _lineText[_lineLoc + 1] == '/')
+                        {
+                            _lineLoc += 2;
+                            legalComment = true;
+                            break;
+                        }
+                        _lineLoc++;
+                        if (Reader.EndOfStream && _lineLoc >= _lineText.Length)
+                        {
+                            _processingLine = false;
+                            break;
+                        }
                     }
-                }
-                // Multi line comments
-                if (_lineLoc < _lineText.Length - 1)
-                {
-                    if (_lineText[_lineLoc] == '/' && _lineText[_lineLoc + 1] == '*')
+                    if (!legalComment)
                     {
-                        _lineLoc += 2;
-                        bool legalComment = false;
-                        while (!Reader.EndOfStream || _processingLine)
-                        {
-                            if (_lineLoc >= _lineText.Length)
-                            {
-                                _lineText = Reader.ReadLine();
-                                _lineNum++;
-                                _lineLoc = 0;
-                                _processingLine = true;
-                                token.Line = _lineNum;
-                                token.Column = _lineLoc + 1;
-                            }
-                            if (_lineText[_lineLoc] == '*' && _lineLoc < _lineText.Length - 1 && _lineText[_lineLoc + 1] == '/')
-                            {
-                                _lineLoc += 2;
-                                legalComment = true;
-                                if (_lineLoc >= _lineText.Length)
-                                {
-                                    _lineText = Reader.ReadLine();
-                                    _lineNum++;
-                                    _lineLoc = 0;
-                                    _processingLine = true;
-                                    token.Line = _lineNum;
-                                    token.Column = _lineLoc + 1;
-                                }
-                                break;
-                            }
-                            _lineLoc++;
-                            if (Reader.EndOfStream && _lineLoc >= _lineText.Length)
-                            {
-                                _processingLine = false;
-                                break;
-                            }
-                        }
-                        if (!legalComment)
-                        {
-                            token.Type = Type.ILLEGAL;
-                            return token;
-                        }
-                        // Clear whitespace after multi line comment
-                        while (_lineLoc < _lineText.Length && _lineText[_lineLoc] == ' ' || _lineText[_lineLoc] == '\t')
-                        {
-                            _lineLoc++;
-                            token.Column = _lineLoc + 1;
-                            if (_lineLoc >= _lineText.Length)
-                            {
-                                _lineText = Reader.ReadLine();
-                                _lineNum++;
-                                _lineLoc = 0;
-                                _processingLine = true;
-                                token.Line = _lineNum;
-                                token.Column = _lineLoc + 1;
-                            }
-                        }
+                        token.Type = Type.ILLEGAL;
                     }
                 }
+                else if (Reader.EndOfStream && _lineLoc >= _lineText.Length)
+                {
+                    _processingLine = false;
+                    break;
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return token;
+        }
+
+        public Token GetNextToken()
+        {
+            Token token = new Token
+            {
+                Line = _lineNum,
+                Column = _lineLoc + 1
+            };
+            token = ClearWhitespaceAndComments(token);
+            if (token.Type == Type.ILLEGAL)
+            {
+                return token;
+            }
+            if (!Reader.EndOfStream || _processingLine)
+            {
                 // Multi character special characters
                 if (_lineLoc < _lineText.Length - 1)
                 {
@@ -253,25 +222,28 @@ namespace Compiler.Models
                     }
                 }
                 if (token.Lexeme == null)
-                { 
+                {
                     // Integer constants and detecting if number starts with 0
                     if (char.IsDigit(_lineText[_lineLoc]))
                     {
+                        System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
                         if (_lineText[_lineLoc] == '0' && _lineLoc < _lineText.Length - 1 && char.IsDigit(_lineText[_lineLoc + 1]))
                         {
                             token.Type = Type.ILLEGAL;
                             while (char.IsDigit(_lineText[_lineLoc]))
                             {
-                                token.Lexeme += _lineText[_lineLoc];
+                                stringBuilder.Append(_lineText[_lineLoc]);
                                 _lineLoc++;
                             }
+                            token.Lexeme = stringBuilder.ToString();
                             return token;
                         }
                         while (_lineLoc < _lineText.Length && char.IsDigit(_lineText[_lineLoc]))
                         {
-                            token.Lexeme += _lineText[_lineLoc];
+                            stringBuilder.Append(_lineText[_lineLoc]);
                             _lineLoc++;
                         }
+                        token.Lexeme = stringBuilder.ToString();
                         token.Type = Type.INTCONST;
                     }
                 }
@@ -291,12 +263,14 @@ namespace Compiler.Models
                             // negative integer constants
                             if (_lineLoc < _lineText.Length - 1 && char.IsDigit(_lineText[_lineLoc + 1]))
                             {
+                                System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
                                 _lineLoc++;
                                 while (char.IsDigit(_lineText[_lineLoc]) && _lineLoc < _lineText.Length)
                                 {
-                                    token.Lexeme += _lineText[_lineLoc];
+                                    stringBuilder.Append(_lineText[_lineLoc]);
                                     _lineLoc++;
                                 }
+                                token.Lexeme += stringBuilder.ToString();
                                 token.Type = Type.INTCONST;
                                 break;
                             }
@@ -386,11 +360,13 @@ namespace Compiler.Models
                 // Identifiers
                 if (token.Lexeme == null && _lineLoc < _lineText.Length && char.IsLetter(_lineText[_lineLoc]))
                 {
+                    System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
                     while (_lineLoc < _lineText.Length && _lineText[_lineLoc] != ' ' && (char.IsLetter(_lineText[_lineLoc]) || char.IsDigit(_lineText[_lineLoc]) || _lineText[_lineLoc] == '_'))
                     {
-                        token.Lexeme += char.ToLower(_lineText[_lineLoc]);
+                        stringBuilder.Append(char.ToLower(_lineText[_lineLoc]));
                         _lineLoc++;
                     }
+                    token.Lexeme = stringBuilder.ToString();
                 }
                 if (_lineLoc >= _lineText.Length)
                 {
@@ -423,7 +399,9 @@ namespace Compiler.Models
                     return token;
                 }
             }
-            return new Token() { Type = Type.EOFTOK, Lexeme = "", Line = _lineNum, Column = _lineLoc };
+            token.Type = Type.EOFTOK;
+            token.Lexeme = "";
+            return token;
         }
     }
 }
