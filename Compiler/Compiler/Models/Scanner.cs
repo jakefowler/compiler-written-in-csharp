@@ -223,7 +223,7 @@ namespace Compiler.Models
                             }
                             return token;
                         }
-                        while (char.IsDigit(_lineText[_lineLoc]))
+                        while (_lineLoc < _lineText.Length && char.IsDigit(_lineText[_lineLoc]))
                         {
                             token.Lexeme += _lineText[_lineLoc];
                             _lineLoc++;

@@ -83,6 +83,7 @@ namespace Compiler.Models
                 WriteError("Didn't end program with dot");
                 return false;
             }
+            Console.WriteLine("Finished Parsing Program");
             return true;
         }
 
@@ -391,6 +392,11 @@ namespace Compiler.Models
         // <procedure declaration section> ::=	<procedure declaration> ; <procedure declaration section> | <empty-string>
         public bool ProcedureDeclarationSection()
         {
+            // <empty-string>
+            if (CurrentToken.Type != Scanner.Type.PROCEDURE)
+            {
+                return true;
+            }
             if (!ProcedureDeclaration())
             {
                 return false;
@@ -514,6 +520,7 @@ namespace Compiler.Models
                 WriteError("Missing Identifier in pass by reference parameter");
                 return false;
             }
+            GetNextToken(); //  
             if (!MoreParameters())
             {
                 return false;
@@ -550,62 +557,280 @@ namespace Compiler.Models
 
         #region Statement Section
         //<statement part> ::= <compound statement>
-        //<compound statement> ::= begin<statement> <more stmts> end
-        // NOTE: The final statement before an END is not terminated by a semicolon.
         public bool StatementSection()
         {
-            return false;
+            if (!CompoundStatement())
+            {
+                return false;
+            }
+            return true;
         }
+
+        //<compound statement> ::= begin<statement> <more stmts> end
+        // NOTE: The final statement before an END is not terminated by a semicolon.
+        public bool CompoundStatement()
+        {
+            if (CurrentToken.Type != Scanner.Type.BEGINTOK)
+            {
+                WriteError("Compound Statement needs to start with begin");
+                return false;
+            }
+            GetNextToken();
+            if (!Statement())
+            {
+                return false;
+            }
+            if (!MoreStatements())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.ENDTOK)
+            {
+                WriteError("Compound Statement needs to end with keyword end");
+                return false;
+            }
+
+            return true;
+        }
+
         //<more stmts> ::= ; <statement> <more stmts> | <empty-string>
         public bool MoreStatements()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.SEMICOLON)
+            {
+                // <empty-string>
+                return true;
+            }
+            GetNextToken();
+            if (!Statement())
+            {
+                return false;
+            }
+            if (!MoreStatements())
+            {
+                return false;
+            }
+            return true;
         }
+
         //<statement>	::=	<simple statement>  | <structured statement>
         public bool Statement()
         {
-            return false;
+            switch (CurrentToken.Type)
+            {
+
+                case Scanner.Type.IDENT:
+                    if (NextToken.Type == Scanner.Type.ASSIGN || NextToken.Type == Scanner.Type.LPAREN)
+                    {
+                        if (!SimpleStatement())
+                        {
+                            return false;
+                        }
+                        return true;
+                    }
+                    return false;
+                case Scanner.Type.READTOK:
+                case Scanner.Type.WRITETOK:
+                    if (!SimpleStatement())
+                        {
+                        return false;
+                    }
+                    return true;
+                case Scanner.Type.BEGINTOK:
+                case Scanner.Type.IFTOK:
+                case Scanner.Type.SWITCHTOK:
+                case Scanner.Type.WHILETOK:
+                    if (!StructuredStatement())
+                    {
+                        return false;
+                    }
+                    return true;
+                default:
+                    WriteError("Invalid Statement");
+                    return false;
+            }
         }
+
         //<simple statement> ::= <assignment statement> | <procedure call> | <read statement> | <write statement>
         public bool SimpleStatement()
         {
+            if (NextToken.Type == Scanner.Type.ASSIGN)
+            {
+                if (!AssignmentStatement())
+                {
+                    return false;
+                }
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.IDENT && NextToken.Type == Scanner.Type.LPAREN)
+            {
+                if (!ProcedureCall())
+                {
+                    return false;
+                }
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.READTOK)
+            {
+                if (!ReadStatement())
+                {
+                    return false;
+                }
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.WRITETOK)
+            {
+                if (!WriteStatement())
+                {
+                    return false;
+                }
+                return true;
+            }
+            WriteError("Invalid simple statement");
             return false;
         }
+
         //<assignment statement> ::= <variable> := <expression>
         public bool AssignmentStatement()
         {
-            return false;
+            if (!Variable())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.ASSIGN)
+            {
+                WriteError("Missing assign := operation");
+                return false;
+            }
+            GetNextToken();
+            if (!Expression())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <procedure call>	::=	<procedure identifier> ( <arg list>
         // <procedure identifier>	::=	<identifier>
         public bool ProcedureCall()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.IDENT)
+            {
+                WriteError("Missing procedure identifier in procedure call");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.LPAREN)
+            {
+                WriteError("Missing left parenthesis in procedure call");
+                return false;
+            }
+            GetNextToken();
+            if (!ArgumentList())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <arg list> ::= <expression> <more args> | )
         public bool ArgumentList()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.RPAREN)
+            {
+                GetNextToken();
+                return true;
+            }
+            if (!Expression())
+            {
+                return false;
+            }
+            if (!MoreArguments())
+            {
+                return false;
+            }
+            return true;
         }
 
         //<more args>	::=	, <expression> <more args> | )
         public bool MoreArguments()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.RPAREN)
+            {
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type != Scanner.Type.COMMA)
+            {
+                WriteError("Missing comma in argument list");
+                return false;
+            }
+            GetNextToken();
+            if (!Expression())
+            {
+                return false;
+            }
+            if (!MoreArguments())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <read statement>	::=	read ( <variable> )
         public bool ReadStatement()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.READTOK)
+            {
+                WriteError("Missing read keyword");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.LPAREN)
+            {
+                WriteError("Missing left parethesis in read statement");
+                return false;
+            }
+            GetNextToken();
+            if (!Variable())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.RPAREN)
+            {
+                WriteError("Missing right parethesis in read statement");
+                return false;
+            }
+            GetNextToken();
+            return true;
         }
 
         //<write statement>	::=	write( <expression> )
         public bool WriteStatement()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.WRITETOK)
+            {
+                WriteError("Missing write keyword");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.LPAREN)
+            {
+                WriteError("Missing left parethesis in write statement");
+                return false;
+            }
+            GetNextToken();
+            if (!Expression())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.RPAREN)
+            {
+                WriteError("Missing right parethesis in write statement");
+                return false;
+            }
+            GetNextToken();
+            return true;
         }
 
         // <structured statement>	::=	<compound statement>   |
@@ -614,126 +839,561 @@ namespace Compiler.Models
         //                              <while statement>
         public bool StructuredStatement()
         {
+
+            if (CurrentToken.Type == Scanner.Type.BEGINTOK)
+            {
+                if (!CompoundStatement())
+                {
+                    return false;
+                }
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.IFTOK)
+            {
+                if (!IfStatement())
+                {
+                    return false;
+                }
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.SWITCHTOK)
+            {
+                if (!CaseStatement())
+                {
+                    return false;
+                }
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.WHILETOK)
+            {
+                if (!WhileStatement())
+                {
+                    return false;
+                }
+                return true;
+            }
+            WriteError("Invalid structured statement");
             return false;
         }
 
         // <if statement> ::= if <expression> then <statement> <else part>
         public bool IfStatement()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.IFTOK)
+            {
+                WriteError("Missing if keyword");
+                return false;
+            }
+            GetNextToken();
+            if (!Expression())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.THENTOK)
+            {
+                WriteError("Missing then keyword");
+                return false;
+            }
+            GetNextToken();
+            if (!Statement())
+            {
+                return false;
+            }
+            if (!ElsePart())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <else part> ::= else <statement> | <empty-string>
         public bool ElsePart()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.ELSETOK)
+            {
+                // <empty-string>
+                return true;
+            }
+            if (!Statement())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <case statement>	::=	switch ( <variable identifier> ) <case part>
         public bool CaseStatement()
         {
-            return false;
+            
+            if (CurrentToken.Type != Scanner.Type.SWITCHTOK)
+            {
+                WriteError("Missing switch keyword");
+                return false;
+            }
+            GetNextToken();
+            if (CurrentToken.Type != Scanner.Type.LPAREN)
+            {
+                WriteError("Missing left parenthesis");
+                return false;
+            }
+            GetNextToken();
+            if (!VariableIdentifier())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.RPAREN)
+            {
+                WriteError("Missing right parenthesis");
+                return false;
+            }
+            GetNextToken();
+            if (!CasePart())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <case part> ::= case <expression> : <compound statement> <case part> | default : <compound statement>
         public bool CasePart()
         {
-            return false;
+            if (CurrentToken.Type == Scanner.Type.DEFAULTTOK)
+            {
+                GetNextToken();
+                if (CurrentToken.Type != Scanner.Type.COLON)
+                {
+                    WriteError("Missing colon after case expression");
+                    return false;
+                }
+                GetNextToken();
+                if (!CompoundStatement())
+                {
+                    return false;
+                }
+                return true;
+            }
+            if (CurrentToken.Type != Scanner.Type.CASETOK)
+            {
+                WriteError("Missing case keyword");
+                return false;
+            }
+            GetNextToken();
+            if (!Expression())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.COLON)
+            {
+                WriteError("Missing colon after case expression");
+                return false;
+            }
+            GetNextToken();
+            if (!CompoundStatement())
+            {
+                return false;
+            }
+            if (!CasePart())
+            {
+                return false;
+            }
+            return true;
         }
 
-        // <while statement> ::= while <expression> do < compound statement>
+        // <while statement> ::= while <expression> do <compound statement>
         public bool WhileStatement()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.WHILETOK)
+            {
+                WriteError("Missing while keyword");
+                return false;
+            }
+            GetNextToken();
+            if (!Expression())
+            {
+                return false;
+            }
+            if (CurrentToken.Type != Scanner.Type.DOTOK)
+            {
+                WriteError("Missing do keyword");
+                return false;
+            }
+            GetNextToken();
+            if (!CompoundStatement())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <expression>	::=	<simple expression> <rel exp>
         public bool Expression()
         {
-            return false;
+            if (!SimpleExpression())
+            {
+                return false;
+            }
+            if (!RelationalExpression())
+            {
+                return false;
+            }
+            return true;
         }
         //<rel exp> ::= <rel op> <simple expression> | <empty-string>
         public bool RelationalExpression()
         {
+            // <empty-string>
+            switch (CurrentToken.Type)
+            {
+                case Scanner.Type.EQL:
+                case Scanner.Type.NEQ:
+                case Scanner.Type.LESS:
+                case Scanner.Type.LEQ:
+                case Scanner.Type.GEQ:
+                case Scanner.Type.GREATER:
+                    break;
+                default:
+                    return true;
+            }
+            if (!RelationalOperator())
+            {
+                return false;
+            }
+            if (!SimpleExpression())
+            {
+                return false;
+            }
             return false;
         }
 
         // <simple expression> ::= <sign> <term> <add term>
         public bool SimpleExpression()
         {
-            return false;
+            if (!Sign())
+            {
+                return false;
+            }
+            if (!Term())
+            {
+                return false;
+            }
+            if (!AddTerm())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <add term> ::= <add op> <term> <add term> | <empty-string>
         public bool AddTerm()
         {
-            return false;
+            // <empty-string>
+            switch (CurrentToken.Type)
+            {
+                case Scanner.Type.PLUS:
+                case Scanner.Type.MINUS:
+                case Scanner.Type.ORTOK:
+                    break;
+                default:
+                    return true;
+            }
+            if (!AddOperation())
+            {
+                return false;
+            }
+            if (!Term())
+            {
+                return false;
+            }
+            if (!AddTerm())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <term> ::= <factor> <mul factor>
         public bool Term()
         {
-            return false;
+            if (!Factor())
+            {
+                return false;
+            }
+            if (!MultiplyFactor())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <mul factor>	::=	<mul op> <factor> <mul factor> | <empty-string>
         public bool MultiplyFactor()
         {
-            return false;
+            // <empty-string>
+            switch (CurrentToken.Type)
+            {
+                case Scanner.Type.ASTRSK:
+                case Scanner.Type.SLASH:
+                case Scanner.Type.ANDOP:
+                case Scanner.Type.IDENT:
+                case Scanner.Type.INTCONST:
+                case Scanner.Type.STRCONST:
+                case Scanner.Type.LPAREN:
+                case Scanner.Type.NOTTOK:
+                    break;
+                default:
+                    return true;
+            }
+            if (!MultiplyOperation())
+            {
+                return false;
+            }
+            if (!Factor())
+            {
+                return false;
+            }
+            if (!MultiplyFactor())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <factor>	::=	<variable> | <constant> | (   <expression>   ) | not<factor>
         public bool Factor()
         {
+            // handle or's
+            if (CurrentToken.Type == Scanner.Type.IDENT)
+            {
+                if (!Variable())
+                {
+                    return false;
+                }
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.INTCONST)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.STRCONST)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.LPAREN)
+            {
+                GetNextToken();
+                if (!Expression())
+                {
+                    return false;
+                }
+                if (CurrentToken.Type != Scanner.Type.RPAREN)
+                {
+                    WriteError("Missing right parenthesis");
+                    return false;
+                }
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.NOTTOK)
+            {
+                GetNextToken();
+                if (!Factor())
+                {
+                    WriteError("Not factor returned an error");
+                    return false;
+                }
+                return true;
+            }
+            WriteError("Not a valid factor");
             return false;
         }
 
         // <rel op>	::=	= | <> | < | <= | >= | >
         public bool RelationalOperator()
         {
+            
+            if (CurrentToken.Type == Scanner.Type.EQL)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " relational operator");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.NEQ)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " relational operator");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.LESS)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " relational operator");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.LEQ)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " relational operator");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.GEQ)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " relational operator");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.GREATER)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " relational operator");
+                GetNextToken();
+                return true;
+            }
+            WriteError("Missing relational operator");
             return false;
         }
 
         // <sign> ::= + | - | <empty-string>
         public bool Sign()
         {
-            return false;
+            if (CurrentToken.Type == Scanner.Type.PLUS)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " sign");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.MINUS)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " sign");
+                GetNextToken();
+                return true;
+            }
+            // <empty-string>
+            return true;
         }
 
         // <add op>	::=	+ | - | or
         public bool AddOperation()
         {
+            if (CurrentToken.Type == Scanner.Type.PLUS)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " operation");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.MINUS)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " operation");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.ORTOK)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " operation");
+                GetNextToken();
+                return true;
+            }
+            WriteError("Missing operation");
             return false;
         }
 
         // <mul op>	::=	* | / | and
         public bool MultiplyOperation()
         {
+            if (CurrentToken.Type == Scanner.Type.ASTRSK)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " operation");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.SLASH)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " operation");
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.ANDOP)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " operation");
+                GetNextToken();
+                return true;
+            }
+            WriteError("Missing operation");
             return false;
         }
 
         // <variable> ::= <variable identifier> <indexed var>
         public bool Variable()
         {
-            return false;
+            if (!VariableIdentifier())
+            {
+                return false;
+            }
+            if (!IndexedVariable())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <indexed var> ::=	[ <expression> <array idx> | <empty-string>
         public bool IndexedVariable()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.LBRACK)
+            {
+                // <empty-string>
+                return true;
+            }
+            GetNextToken();
+            if (!Expression())
+            {
+                return false;
+            }
+            if (!ArrayIndex())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <array idx> ::= , <expression> <array idx> | ]
         public bool ArrayIndex()
         {
-            return false;
+            if (CurrentToken.Type == Scanner.Type.RBRACK)
+            {
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type != Scanner.Type.COMMA)
+            {
+                WriteError("Missing comma in array index");
+                return false;
+            }
+            GetNextToken();
+            if (!Expression())
+            {
+                return false;
+            }
+            if (!ArrayIndex())
+            {
+                return false;
+            }
+            return true;
         }
 
         // <variable identifier> ::= <identifier>
         public bool VariableIdentifier()
         {
-            return false;
+            if (CurrentToken.Type != Scanner.Type.IDENT)
+            {
+                WriteError("Identifier not found");
+                return false;
+            }
+            Console.WriteLine(CurrentToken.Lexeme + " Identifier to be put into symbol table");
+            GetNextToken();
+            return true;
         }
         #endregion
 
