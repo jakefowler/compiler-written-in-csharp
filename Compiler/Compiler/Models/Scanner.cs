@@ -113,6 +113,15 @@ namespace Compiler.Models
                     {
                         _lineLoc++;
                         token.Column = _lineLoc + 1;
+                        if (_lineLoc >= _lineText.Length)
+                        {
+                            _lineText = Reader.ReadLine();
+                            _lineNum++;
+                            _lineLoc = 0;
+                            _processingLine = true;
+                            token.Line = _lineNum;
+                            token.Column = _lineLoc + 1;
+                        }
                     }
                 }
                 // Multi line comments
@@ -210,26 +219,6 @@ namespace Compiler.Models
                         token.Type = Type.NEQ;
                         _lineLoc += 2;
                     }
-                    // Integer constants and detecting if number starts with 0
-                    else if (char.IsDigit(_lineText[_lineLoc]))
-                    {
-                        if (_lineText[_lineLoc] == '0' && _lineLoc < _lineText.Length && char.IsDigit(_lineText[_lineLoc + 1]))
-                        {
-                            token.Type = Type.ILLEGAL;
-                            while (char.IsDigit(_lineText[_lineLoc]))
-                            {
-                                token.Lexeme += _lineText[_lineLoc];
-                                _lineLoc++;
-                            }
-                            return token;
-                        }
-                        while (_lineLoc < _lineText.Length && char.IsDigit(_lineText[_lineLoc]))
-                        {
-                            token.Lexeme += _lineText[_lineLoc];
-                            _lineLoc++;
-                        }
-                        token.Type = Type.INTCONST;
-                    }
                     // String constants and making sure the string ends correctly
                     else if (_lineText[_lineLoc] == '"')
                     {
@@ -261,6 +250,29 @@ namespace Compiler.Models
                             _lineText = null;
                         }
                         return token;
+                    }
+                }
+                if (token.Lexeme == null)
+                { 
+                    // Integer constants and detecting if number starts with 0
+                    if (char.IsDigit(_lineText[_lineLoc]))
+                    {
+                        if (_lineText[_lineLoc] == '0' && _lineLoc < _lineText.Length - 1 && char.IsDigit(_lineText[_lineLoc + 1]))
+                        {
+                            token.Type = Type.ILLEGAL;
+                            while (char.IsDigit(_lineText[_lineLoc]))
+                            {
+                                token.Lexeme += _lineText[_lineLoc];
+                                _lineLoc++;
+                            }
+                            return token;
+                        }
+                        while (_lineLoc < _lineText.Length && char.IsDigit(_lineText[_lineLoc]))
+                        {
+                            token.Lexeme += _lineText[_lineLoc];
+                            _lineLoc++;
+                        }
+                        token.Type = Type.INTCONST;
                     }
                 }
                 // Single character symbols

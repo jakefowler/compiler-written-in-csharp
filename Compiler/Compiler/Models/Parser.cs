@@ -589,7 +589,7 @@ namespace Compiler.Models
                 WriteError("Compound Statement needs to end with keyword end");
                 return false;
             }
-
+            GetNextToken();
             return true;
         }
 
@@ -736,7 +736,7 @@ namespace Compiler.Models
         // <arg list> ::= <expression> <more args> | )
         public bool ArgumentList()
         {
-            if (CurrentToken.Type != Scanner.Type.RPAREN)
+            if (CurrentToken.Type == Scanner.Type.RPAREN)
             {
                 GetNextToken();
                 return true;
@@ -755,7 +755,7 @@ namespace Compiler.Models
         //<more args>	::=	, <expression> <more args> | )
         public bool MoreArguments()
         {
-            if (CurrentToken.Type != Scanner.Type.RPAREN)
+            if (CurrentToken.Type == Scanner.Type.RPAREN)
             {
                 GetNextToken();
                 return true;
@@ -914,6 +914,7 @@ namespace Compiler.Models
                 // <empty-string>
                 return true;
             }
+            GetNextToken();
             if (!Statement())
             {
                 return false;
@@ -1177,6 +1178,18 @@ namespace Compiler.Models
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.STRCONST)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.FALSETOK)
+            {
+                Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
+                GetNextToken();
+                return true;
+            }
+            if (CurrentToken.Type == Scanner.Type.TRUETOK)
             {
                 Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
                 GetNextToken();
