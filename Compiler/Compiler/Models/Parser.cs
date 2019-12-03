@@ -79,6 +79,7 @@ namespace Compiler.Models
             if (!Block())
             {
                 Console.WriteLine("Error in Block");
+                return false;
             }
             if (CurrentToken.Type != Scanner.Type.DOT)
             {
@@ -1144,7 +1145,7 @@ namespace Compiler.Models
                 WriteError("SimpleExpression");
                 return false;
             }
-            return false;
+            return true;
         }
 
         // <simple expression> ::= <sign> <term> <add term>
