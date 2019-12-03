@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.IO;
 using System.Text;
 
@@ -10,12 +11,14 @@ namespace Compiler.Models
         private StreamWriter _assemblyFile;
         private StreamWriter _errorFile;
         private readonly string _path;
+        private Stack _stack;
         public Scanner.Token CurrentToken { get; set; }
         public Scanner.Token NextToken { get; set; }
         public Parser(Scanner scanner, string path = "")
         {
             _scanner = scanner;
             _path = path;
+            _stack = new Stack();
             Program();
             _errorFile.Close();
             _assemblyFile.Close();
@@ -95,6 +98,7 @@ namespace Compiler.Models
             {
                 if (!VariableDeclarationSection())
                 {
+                    WriteError("VariableDeclarationSection");
                     return false;
                 }
             }
@@ -102,6 +106,7 @@ namespace Compiler.Models
             {
                 if (!ProcedureDeclarationSection())
                 {
+                    WriteError("ProcedureDeclarationSection");
                     return false;
                 }
             }
@@ -109,6 +114,7 @@ namespace Compiler.Models
             {
                 if (!StatementSection())
                 {
+                    WriteError("StatementSection");
                     return false;
                 }
             }
@@ -132,6 +138,7 @@ namespace Compiler.Models
                     WriteError("Variable Declaration returned false");
                     return false;
                 }
+                // Maybe pop off stack items here to print identity with type
                 if (CurrentToken.Type != Scanner.Type.SEMICOLON)
                 {
                     WriteError("Didn't end variable declaration in semi colon");
@@ -142,8 +149,10 @@ namespace Compiler.Models
                     GetNextToken();
                     if (CurrentToken.Type == Scanner.Type.IDENT)
                     {
+                        // add identity to stack
                         if (!MoreVariables())
                         {
+                            WriteError("MoreVariables");
                             return false;
                         }
                         return true;
@@ -187,17 +196,32 @@ namespace Compiler.Models
         // <variable declaration> ::= <identifier> <more decls>
         public bool VariableDeclaration()
         {
+            // Could Push Identity this is pushed twice if I do it at line 146
+            // maybe this is the spot----------------------------------------------------
+            // but it gets called for each varaibale so it wouldn't work
             if (CurrentToken.Type != Scanner.Type.IDENT)
             {
                 WriteError("Variable Declaration didn't contain an identifier");
                 return false;
             }
-            Console.Write(CurrentToken.Lexeme + " ") ;
+            _stack.Push(CurrentToken.Lexeme);
+            //Console.Write(CurrentToken.Lexeme + " ");
             GetNextToken();
             if (!MoreDeclarations())
             {
                 WriteError("MoreDeclarations");
                 return false;
+            }
+            // maybe pop everything off here --------------------------------
+            if (_stack.Count > 0)
+            {
+                var type = _stack.Pop();
+                var count = _stack.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    Console.Write(_stack.Pop() + " ");
+                }
+                Console.Write("Type: " + type + "\n");
             }
             return true;
         }
@@ -213,6 +237,7 @@ namespace Compiler.Models
                     WriteError("Type returned with error");
                     return false;
                 }
+                // could pop off everything after we know the type
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.COMMA)
@@ -234,8 +259,10 @@ namespace Compiler.Models
         {
             if (CurrentToken.Type == Scanner.Type.ARRAYTOK)
             {
+                _stack.Push("array");
                 if (!ArrayType())
                 {
+                    WriteError("ArrayType");
                     return false;
                 }
                 return true;
@@ -244,6 +271,7 @@ namespace Compiler.Models
             {
                 if (!SimpleType())
                 {
+                    WriteError("SimpleType");
                     return false;
                 }
                 return true;
@@ -308,18 +336,20 @@ namespace Compiler.Models
             }
             var upperBound = CurrentToken.Lexeme;
             GetNextToken();
-            Console.WriteLine("Array index " + lowerBound + " to " + upperBound + " to the symbol table");
+            _stack.Push(lowerBound + " to " + upperBound);
             if (!IndexList())
             {
                 WriteError("Index list for array returned error");
                 return false;
             }
+            // all indexes are on the stack------------------------------------------------------------
             return true;
         }
 
         // <index list>	::=	, <integer constant> . . <integer constant> <index list> | ]
         public bool IndexList()
         {
+            // -----------keep pushing index on the stack------------------
             if (CurrentToken.Type == Scanner.Type.RBRACK)
             {
                 GetNextToken();
@@ -350,7 +380,7 @@ namespace Compiler.Models
                 return false;
             }
             var upperBound = CurrentToken.Lexeme;
-            Console.WriteLine("Array index " + lowerBound + " to " + upperBound + " to the symbol table");
+            _stack.Push(lowerBound + " to " + upperBound);
             GetNextToken();
             if (!IndexList())
             {
@@ -366,25 +396,19 @@ namespace Compiler.Models
         {
             if (CurrentToken.Type == Scanner.Type.INTTOK)
             {
-                //Console.WriteLine("Type: Int into the symbol table");
-                Console.Write("Type Int");
-                Console.WriteLine();
+                _stack.Push(CurrentToken.Type.ToString());
                 GetNextToken();
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.BOOLTOK)
             {
-                //Console.WriteLine("Type: Boolean into the symbol table");
-                Console.Write("Type Boolean");
-                Console.WriteLine();
+                _stack.Push(CurrentToken.Type.ToString());
                 GetNextToken();
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.STRINGTOK)
             {
-                //Console.WriteLine("Type: String into the symbol table");
-                Console.Write("Type String");
-                Console.WriteLine();
+                _stack.Push(CurrentToken.Type.ToString());
                 GetNextToken();
                 return true;
             }
@@ -404,6 +428,7 @@ namespace Compiler.Models
             }
             if (!ProcedureDeclaration())
             {
+                WriteError("ProcedureDeclaration");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.SEMICOLON)
@@ -416,6 +441,7 @@ namespace Compiler.Models
             {
                 if (!ProcedureDeclarationSection())
                 {
+                    WriteError("ProcedureDeclarationSection");
                     return false;
                 }
             }
@@ -446,6 +472,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!ParameterList())
             {
+                WriteError("ParameterList");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.SEMICOLON)
@@ -473,10 +500,12 @@ namespace Compiler.Models
             }
             if (!SimpleType())
             {
+                WriteError("SimpleType");
                 return false;
             }
             if (!ParameterPassing())
             {
+                WriteError("ParameterPassing");
                 return false;
             }
             return true;
@@ -490,12 +519,14 @@ namespace Compiler.Models
                 GetNextToken();
                 if (!PassByReference())
                 {
+                    WriteError("PassByReference");
                     return false;
                 }
                 return true;
             }
             if (!PassByValue())
             {
+                WriteError("PassByValue");
                 return false;
             }
             return true;
@@ -512,6 +543,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!MoreParameters())
             {
+                WriteError("MoreParameters");
                 return false;
             }
             return true;
@@ -528,6 +560,7 @@ namespace Compiler.Models
             GetNextToken(); //  
             if (!MoreParameters())
             {
+                WriteError("MoreParameters");
                 return false;
             }
             return true;
@@ -550,10 +583,12 @@ namespace Compiler.Models
             GetNextToken();
             if (!SimpleType())
             {
+                WriteError("SimpleType");
                 return false;
             }
             if (!ParameterPassing())
             {
+                WriteError("ParameterPassing");
                 return false;
             }
             return true;
@@ -566,6 +601,7 @@ namespace Compiler.Models
         {
             if (!CompoundStatement())
             {
+                WriteError("CompoundStatement");
                 return false;
             }
             return true;
@@ -583,10 +619,12 @@ namespace Compiler.Models
             GetNextToken();
             if (!Statement())
             {
+                WriteError("Statement");
                 return false;
             }
             if (!MoreStatements())
             {
+                WriteError("MoreStatements");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.ENDTOK)
@@ -609,10 +647,12 @@ namespace Compiler.Models
             GetNextToken();
             if (!Statement())
             {
+                WriteError("Statement");
                 return false;
             }
             if (!MoreStatements())
             {
+                WriteError("MoreStatements");
                 return false;
             }
             return true;
@@ -629,6 +669,7 @@ namespace Compiler.Models
                     {
                         if (!SimpleStatement())
                         {
+                            WriteError("SimpleStatement");
                             return false;
                         }
                         return true;
@@ -637,7 +678,8 @@ namespace Compiler.Models
                 case Scanner.Type.READTOK:
                 case Scanner.Type.WRITETOK:
                     if (!SimpleStatement())
-                        {
+                    {
+                        WriteError("SimpleStatement");
                         return false;
                     }
                     return true;
@@ -647,6 +689,7 @@ namespace Compiler.Models
                 case Scanner.Type.WHILETOK:
                     if (!StructuredStatement())
                     {
+                        WriteError("StructuredStatement");
                         return false;
                     }
                     return true;
@@ -663,6 +706,7 @@ namespace Compiler.Models
             {
                 if (!AssignmentStatement())
                 {
+                    WriteError("AssignmentStatement");
                     return false;
                 }
                 return true;
@@ -671,6 +715,7 @@ namespace Compiler.Models
             {
                 if (!ProcedureCall())
                 {
+                    WriteError("ProcedureCall");
                     return false;
                 }
                 return true;
@@ -679,6 +724,7 @@ namespace Compiler.Models
             {
                 if (!ReadStatement())
                 {
+                    WriteError("ReadStatement");
                     return false;
                 }
                 return true;
@@ -687,6 +733,7 @@ namespace Compiler.Models
             {
                 if (!WriteStatement())
                 {
+                    WriteError("WriteStatement");
                     return false;
                 }
                 return true;
@@ -700,6 +747,7 @@ namespace Compiler.Models
         {
             if (!Variable())
             {
+                WriteError("Variable");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.ASSIGN)
@@ -710,6 +758,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!Expression())
             {
+                WriteError("Expression");
                 return false;
             }
             return true;
@@ -733,6 +782,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!ArgumentList())
             {
+                WriteError("ArgumentList");
                 return false;
             }
             return true;
@@ -748,10 +798,12 @@ namespace Compiler.Models
             }
             if (!Expression())
             {
+                WriteError("Expression");
                 return false;
             }
             if (!MoreArguments())
             {
+                WriteError("MoreArguments");
                 return false;
             }
             return true;
@@ -773,10 +825,12 @@ namespace Compiler.Models
             GetNextToken();
             if (!Expression())
             {
+                WriteError("Expression");
                 return false;
             }
             if (!MoreArguments())
             {
+                WriteError("MoreArguments");
                 return false;
             }
             return true;
@@ -799,6 +853,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!Variable())
             {
+                WriteError("Variable");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.RPAREN)
@@ -827,6 +882,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!Expression())
             {
+                WriteError("Expression");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.RPAREN)
@@ -849,6 +905,7 @@ namespace Compiler.Models
             {
                 if (!CompoundStatement())
                 {
+                    WriteError("CompoundStatement");
                     return false;
                 }
                 return true;
@@ -857,6 +914,7 @@ namespace Compiler.Models
             {
                 if (!IfStatement())
                 {
+                    WriteError("IfStatement");
                     return false;
                 }
                 return true;
@@ -865,6 +923,7 @@ namespace Compiler.Models
             {
                 if (!CaseStatement())
                 {
+                    WriteError("CaseStatement");
                     return false;
                 }
                 return true;
@@ -873,6 +932,7 @@ namespace Compiler.Models
             {
                 if (!WhileStatement())
                 {
+                    WriteError("WhileStatement");
                     return false;
                 }
                 return true;
@@ -892,6 +952,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!Expression())
             {
+                WriteError("Expression");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.THENTOK)
@@ -902,10 +963,12 @@ namespace Compiler.Models
             GetNextToken();
             if (!Statement())
             {
+                WriteError("Statement");
                 return false;
             }
             if (!ElsePart())
             {
+                WriteError("ElsePart");
                 return false;
             }
             return true;
@@ -922,6 +985,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!Statement())
             {
+                WriteError("Statement");
                 return false;
             }
             return true;
@@ -945,6 +1009,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!VariableIdentifier())
             {
+                WriteError("VariableIdentifier");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.RPAREN)
@@ -955,6 +1020,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!CasePart())
             {
+                WriteError("CasePart");
                 return false;
             }
             return true;
@@ -974,6 +1040,7 @@ namespace Compiler.Models
                 GetNextToken();
                 if (!CompoundStatement())
                 {
+                    WriteError("CompoundStatement");
                     return false;
                 }
                 return true;
@@ -986,6 +1053,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!Expression())
             {
+                WriteError("Expression");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.COLON)
@@ -996,10 +1064,12 @@ namespace Compiler.Models
             GetNextToken();
             if (!CompoundStatement())
             {
+                WriteError("CompoundStatement");
                 return false;
             }
             if (!CasePart())
             {
+                WriteError("CasePart");
                 return false;
             }
             return true;
@@ -1016,6 +1086,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!Expression())
             {
+                WriteError("Expression");
                 return false;
             }
             if (CurrentToken.Type != Scanner.Type.DOTOK)
@@ -1026,6 +1097,7 @@ namespace Compiler.Models
             GetNextToken();
             if (!CompoundStatement())
             {
+                WriteError("CompoundStatement");
                 return false;
             }
             return true;
@@ -1036,10 +1108,12 @@ namespace Compiler.Models
         {
             if (!SimpleExpression())
             {
+                WriteError("SimpleExpression");
                 return false;
             }
             if (!RelationalExpression())
             {
+                WriteError("RelationalExpression");
                 return false;
             }
             return true;
@@ -1062,10 +1136,12 @@ namespace Compiler.Models
             }
             if (!RelationalOperator())
             {
+                WriteError("RelationalOperator");
                 return false;
             }
             if (!SimpleExpression())
             {
+                WriteError("SimpleExpression");
                 return false;
             }
             return false;
@@ -1076,14 +1152,17 @@ namespace Compiler.Models
         {
             if (!Sign())
             {
+                WriteError("Sign");
                 return false;
             }
             if (!Term())
             {
+                WriteError("Term");
                 return false;
             }
             if (!AddTerm())
             {
+                WriteError("AddTerm");
                 return false;
             }
             return true;
@@ -1104,14 +1183,17 @@ namespace Compiler.Models
             }
             if (!AddOperation())
             {
+                WriteError("AddOperation");
                 return false;
             }
             if (!Term())
             {
+                WriteError("Term");
                 return false;
             }
             if (!AddTerm())
             {
+                WriteError("AddTerm");
                 return false;
             }
             return true;
@@ -1122,10 +1204,12 @@ namespace Compiler.Models
         {
             if (!Factor())
             {
+                WriteError("Factor");
                 return false;
             }
             if (!MultiplyFactor())
             {
+                WriteError("MultiplyFactor");
                 return false;
             }
             return true;
@@ -1151,14 +1235,17 @@ namespace Compiler.Models
             }
             if (!MultiplyOperation())
             {
+                WriteError("MultiplyOperation");
                 return false;
             }
             if (!Factor())
             {
+                WriteError("Factor");
                 return false;
             }
             if (!MultiplyFactor())
             {
+                WriteError("MultiplyFactor");
                 return false;
             }
             return true;
@@ -1172,6 +1259,7 @@ namespace Compiler.Models
             {
                 if (!Variable())
                 {
+                    WriteError("Variable");
                     return false;
                 }
                 return true;
@@ -1205,6 +1293,7 @@ namespace Compiler.Models
                 GetNextToken();
                 if (!Expression())
                 {
+                    WriteError("Expression");
                     return false;
                 }
                 if (CurrentToken.Type != Scanner.Type.RPAREN)
@@ -1347,10 +1436,12 @@ namespace Compiler.Models
         {
             if (!VariableIdentifier())
             {
+                WriteError("VariableIdentifier");
                 return false;
             }
             if (!IndexedVariable())
             {
+                WriteError("IndexedVariable");
                 return false;
             }
             return true;
@@ -1367,10 +1458,12 @@ namespace Compiler.Models
             GetNextToken();
             if (!Expression())
             {
+                WriteError("Expression");
                 return false;
             }
             if (!ArrayIndex())
             {
+                WriteError("ArrayIndex");
                 return false;
             }
             return true;
@@ -1392,10 +1485,12 @@ namespace Compiler.Models
             GetNextToken();
             if (!Expression())
             {
+                WriteError("Expression");
                 return false;
             }
             if (!ArrayIndex())
             {
+                WriteError("ArrayIndex");
                 return false;
             }
             return true;

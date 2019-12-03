@@ -11,7 +11,7 @@ namespace Compiler
         {
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
-            Scanner scanner = new Scanner("rude.pas");
+            Scanner scanner = new Scanner("pteststmt2.pas");
             Parser parser = new Parser(scanner);
             //Token token = new Token();
             //while (token.Type != Scanner.Type.EOFTOK)
