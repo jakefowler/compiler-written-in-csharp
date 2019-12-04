@@ -12,9 +12,10 @@ namespace Compiler
             string filename = "rude.pas";
             bool runScanner = false;
             bool runParser = false;
+            bool verbose = true;
             if(args.Length < 1)
             {
-                Console.WriteLine("Pass in file name with -f filename, -s to run the scanner, and -p to run the parser");
+                Console.WriteLine("Pass in file name with -f filename, -s to run the scanner, -p to run the parser, and -v for printing verbose information.");
                 runParser = true;
             }
             for (int i = 0; i < args.Length; i++)
@@ -32,6 +33,10 @@ namespace Compiler
                 {
                     runParser = true;
                 }
+                if(args[i] == "-v")
+                {
+                    verbose = true;
+                }
             }
             Stopwatch stopWatch = new Stopwatch();
             stopWatch.Start();
@@ -39,6 +44,10 @@ namespace Compiler
             {
                 Scanner scanner = new Scanner(filename);
                 Parser parser = new Parser(scanner);
+                if (verbose)
+                {
+                    parser.PrintSymbolTable();
+                }
             }
             if (runScanner)
             {

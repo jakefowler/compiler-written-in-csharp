@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
@@ -11,18 +12,47 @@ namespace Compiler.Models
         private StreamWriter _assemblyFile;
         private StreamWriter _errorFile;
         private readonly string _path;
-        private Stack _stack;
+        private Stack<string> _stack;
+        private Stack<int> _scopeStack;
+        private int _scope = 0;
+        public Hashtable SymbolTable { get; set; }
         public Scanner.Token CurrentToken { get; set; }
         public Scanner.Token NextToken { get; set; }
+        public struct Symbol
+        {
+            public string Identifier;
+            public string Type;
+            public Stack<int> Scope;
+            public override string ToString()
+            {
+                StringBuilder scope = new StringBuilder();
+                foreach(var s in Scope)
+                {
+                    scope.Append(s + ", ");
+                }
+                return "Identifier: " + Identifier + " Type: " + Type + " Scope: " + scope.ToString();
+            }
+        }
         public Parser(Scanner scanner, string path = "")
         {
             _scanner = scanner;
             _path = path;
-            _stack = new Stack();
+            _stack = new Stack<string>();
+            _scopeStack = new Stack<int>();
+            SymbolTable = new Hashtable();
             Program();
             _errorFile.Close();
             _assemblyFile.Close();
         }
+
+        public void PrintSymbolTable()
+        {
+            foreach (Symbol val in SymbolTable.Values)
+            {
+                Console.WriteLine(val.ToString());
+            }
+        }
+
         public bool GetNextToken()
         {
             CurrentToken = NextToken;
@@ -95,6 +125,8 @@ namespace Compiler.Models
         //             <statement part>
         public bool Block()
         {
+            _scope++;
+            _scopeStack.Push(_scope);
             if (CurrentToken.Type == Scanner.Type.VARTOK)
             {
                 if (!VariableDeclarationSection())
@@ -119,6 +151,7 @@ namespace Compiler.Models
                     return false;
                 }
             }
+            _scopeStack.Pop();
             return true;
         }
 
@@ -139,7 +172,6 @@ namespace Compiler.Models
                     WriteError("Variable Declaration returned false");
                     return false;
                 }
-                // Maybe pop off stack items here to print identity with type
                 if (CurrentToken.Type != Scanner.Type.SEMICOLON)
                 {
                     WriteError("Didn't end variable declaration in semi colon");
@@ -197,30 +229,52 @@ namespace Compiler.Models
         // <variable declaration> ::= <identifier> <more decls>
         public bool VariableDeclaration()
         {
-            // Could Push Identity this is pushed twice if I do it at line 146
-            // maybe this is the spot----------------------------------------------------
-            // but it gets called for each varaibale so it wouldn't work
             if (CurrentToken.Type != Scanner.Type.IDENT)
             {
                 WriteError("Variable Declaration didn't contain an identifier");
                 return false;
             }
             _stack.Push(CurrentToken.Lexeme);
-            //Console.Write(CurrentToken.Lexeme + " ");
             GetNextToken();
             if (!MoreDeclarations())
             {
                 WriteError("MoreDeclarations");
                 return false;
             }
-            // maybe pop everything off here --------------------------------
             if (_stack.Count > 0)
             {
                 var type = _stack.Pop();
                 var count = _stack.Count;
                 for (int i = 0; i < count; i++)
                 {
-                    Console.Write(_stack.Pop() + " ");
+                    string identifier = _stack.Pop();
+                    
+                    if (SymbolTable.Contains(identifier))
+                    {
+                        Symbol symbol = (Symbol)SymbolTable[identifier];
+                        if (symbol.Scope.Peek() != _scope)
+                        {
+                            symbol.Scope.Push(_scope);
+                        }
+                        else
+                        {
+                            WriteError("Declared the same veriable multiple times in the same scope");
+                            Console.WriteLine("Declared the same veriable multiple times in the same scope");
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        Symbol symbol = new Symbol()
+                        {
+                            Identifier = identifier.ToString(),
+                            Type = type.ToString(),
+                            Scope = new Stack<int>()
+                        };
+                        symbol.Scope.Push(_scope);
+                        SymbolTable.Add(identifier.ToString(), symbol);
+                    }
+                    Console.Write(identifier + " ");
                 }
                 Console.Write("Type: " + type + "\n");
             }
@@ -238,7 +292,6 @@ namespace Compiler.Models
                     WriteError("Type returned with error");
                     return false;
                 }
-                // could pop off everything after we know the type
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.COMMA)
@@ -343,14 +396,12 @@ namespace Compiler.Models
                 WriteError("Index list for array returned error");
                 return false;
             }
-            // all indexes are on the stack------------------------------------------------------------
             return true;
         }
 
         // <index list>	::=	, <integer constant> . . <integer constant> <index list> | ]
         public bool IndexList()
         {
-            // -----------keep pushing index on the stack------------------
             if (CurrentToken.Type == Scanner.Type.RBRACK)
             {
                 GetNextToken();
