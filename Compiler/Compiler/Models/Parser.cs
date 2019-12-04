@@ -23,6 +23,8 @@ namespace Compiler.Models
             public string Identifier;
             public string Type;
             public Stack<int> Scope;
+            public List<Tuple<string, string>> Dimensions;
+            public Hashtable attributes;
             public override string ToString()
             {
                 StringBuilder scope = new StringBuilder();
@@ -30,8 +32,31 @@ namespace Compiler.Models
                 {
                     scope.Append(s + ", ");
                 }
-                return "Identifier: " + Identifier + " Type: " + Type + " Scope: " + scope.ToString();
+                StringBuilder attr = new StringBuilder();
+                if (attributes != null)
+                {
+                    foreach(var a in attributes.Keys)
+                    {
+                        attr.Append(a + ": " + attributes[a] + " ");
+                    }
+                }
+                StringBuilder dimesions = new StringBuilder();
+                if (Dimensions != null)
+                {
+                    dimesions.Append(" Number of Dimensions: " + Dimensions.Count + " (");
+                    foreach(Tuple<string, string> dim in Dimensions)
+                    {
+                        dimesions.Append(dim.Item1 + ".." + dim.Item2 + ",");
+                    }
+                    // remove the last comma
+                    dimesions.Length--;
+                    dimesions.Append(")");
+                }
+                return "Identifier: " + Identifier + " Type: " + Type + " Scope: " + scope.ToString() + dimesions.ToString() + attr.ToString();
             }
+        }
+        public enum SymbolAttribute
+        {
         }
         public Parser(Scanner scanner, string path = "")
         {
@@ -244,37 +269,76 @@ namespace Compiler.Models
             if (_stack.Count > 0)
             {
                 var type = _stack.Pop();
-                var count = _stack.Count;
-                for (int i = 0; i < count; i++)
+                if (type == Scanner.Type.ARRAYTOK.ToString())
                 {
-                    string identifier = _stack.Pop();
-                    
-                    if (SymbolTable.Contains(identifier))
+                    type = _stack.Pop();
+                    var count = _stack.Count;
+                    string upperBound = null;
+                    string identifier = null;
+                    var dimensions = new List<Tuple<string, string>>();
+
+                    for (int i = 0; i < count; i++)
                     {
-                        Symbol symbol = (Symbol)SymbolTable[identifier];
-                        if (symbol.Scope.Peek() != _scope)
+                        if (i == count - 1)
                         {
-                            symbol.Scope.Push(_scope);
+                            identifier = _stack.Pop();
+                            break;
+                        }
+                        if (upperBound == null)
+                        {
+                            upperBound = _stack.Pop();
                         }
                         else
                         {
-                            WriteError("Declared the same veriable multiple times in the same scope");
-                            Console.WriteLine("Declared the same veriable multiple times in the same scope");
-                            return false;
+                            dimensions.Add(Tuple.Create(_stack.Pop(), upperBound));
+                            upperBound = null;
                         }
                     }
-                    else
+                    Symbol symbol = new Symbol()
                     {
-                        Symbol symbol = new Symbol()
+                        Type = type,
+                        Identifier = identifier,
+                        Scope = new Stack<int>(),
+                        Dimensions = dimensions
+                    };
+                    symbol.Scope.Push(_scope);
+                    SymbolTable.Add(identifier, symbol);
+                }
+                else
+                {
+
+                    var count = _stack.Count;
+                    for (int i = 0; i < count; i++)
+                    {
+                        string identifier = _stack.Pop();
+
+                        if (SymbolTable.Contains(identifier))
                         {
-                            Identifier = identifier.ToString(),
-                            Type = type.ToString(),
-                            Scope = new Stack<int>()
-                        };
-                        symbol.Scope.Push(_scope);
-                        SymbolTable.Add(identifier.ToString(), symbol);
+                            Symbol symbol = (Symbol)SymbolTable[identifier];
+                            if (symbol.Scope.Peek() != _scope)
+                            {
+                                symbol.Scope.Push(_scope);
+                            }
+                            else
+                            {
+                                WriteError("Declared the same veriable multiple times in the same scope");
+                                Console.WriteLine("Declared the same veriable multiple times in the same scope");
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            Symbol symbol = new Symbol()
+                            {
+                                Identifier = identifier.ToString(),
+                                Type = type.ToString(),
+                                Scope = new Stack<int>()
+                            };
+                            symbol.Scope.Push(_scope);
+                            SymbolTable.Add(identifier.ToString(), symbol);
+                        }
+                        Console.Write(identifier + " ");
                     }
-                    Console.Write(identifier + " ");
                 }
                 Console.Write("Type: " + type + "\n");
             }
@@ -313,12 +377,13 @@ namespace Compiler.Models
         {
             if (CurrentToken.Type == Scanner.Type.ARRAYTOK)
             {
-                _stack.Push("array");
+                // _stack.Push("array");
                 if (!ArrayType())
                 {
                     WriteError("ArrayType");
                     return false;
                 }
+                _stack.Push(Scanner.Type.ARRAYTOK.ToString());
                 return true;
             }
             else
@@ -375,7 +440,8 @@ namespace Compiler.Models
                 WriteError("Missing first integer for index range of array");
                 return false;
             }
-            var lowerBound = CurrentToken.Lexeme;
+            // lowerbound
+            _stack.Push(CurrentToken.Lexeme);
             GetNextToken();
             if (CurrentToken.Type != Scanner.Type.RANGE)
             {
@@ -388,9 +454,9 @@ namespace Compiler.Models
                 WriteError("Missing last integer for index range of array");
                 return false;
             }
-            var upperBound = CurrentToken.Lexeme;
+            // upperbound
+            _stack.Push(CurrentToken.Lexeme);
             GetNextToken();
-            _stack.Push(lowerBound + " to " + upperBound);
             if (!IndexList())
             {
                 WriteError("Index list for array returned error");
@@ -418,7 +484,8 @@ namespace Compiler.Models
                 WriteError("Missing int constant in index list");
                 return false;
             }
-            var lowerBound = CurrentToken.Lexeme;
+            // lowerbound
+            _stack.Push(CurrentToken.Lexeme);
             GetNextToken();
             if (CurrentToken.Type != Scanner.Type.RANGE)
             {
@@ -431,8 +498,8 @@ namespace Compiler.Models
                 WriteError("Missing int constant in index list");
                 return false;
             }
-            var upperBound = CurrentToken.Lexeme;
-            _stack.Push(lowerBound + " to " + upperBound);
+            // upperbound
+            _stack.Push(CurrentToken.Lexeme);
             GetNextToken();
             if (!IndexList())
             {
