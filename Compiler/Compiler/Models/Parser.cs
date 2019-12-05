@@ -24,7 +24,12 @@ namespace Compiler.Models
             public string Type;
             public Stack<int> Scope;
             public List<Tuple<string, string>> Dimensions;
-            public Hashtable attributes;
+            public Hashtable Attributes;
+            public string Store;
+            public List<string> ParameterType;
+            public List<string> PassByType;
+            public int Column;
+            public int Line;
             public override string ToString()
             {
                 StringBuilder scope = new StringBuilder();
@@ -33,11 +38,11 @@ namespace Compiler.Models
                     scope.Append(s + ", ");
                 }
                 StringBuilder attr = new StringBuilder();
-                if (attributes != null)
+                if (Attributes != null)
                 {
-                    foreach(var a in attributes.Keys)
+                    foreach(var a in Attributes.Keys)
                     {
-                        attr.Append(a + ": " + attributes[a] + " ");
+                        attr.Append(a + ": " + Attributes[a] + " ");
                     }
                 }
                 StringBuilder dimesions = new StringBuilder();
@@ -52,7 +57,16 @@ namespace Compiler.Models
                     dimesions.Length--;
                     dimesions.Append(")");
                 }
-                return "Identifier: " + Identifier + " Type: " + Type + " Scope: " + scope.ToString() + dimesions.ToString() + attr.ToString();
+                return "Symbol: "
+                       + Identifier
+                       + " Type: "
+                       + Type
+                       + " Store: "
+                       + Store
+                       + " Scope: "
+                       + scope.ToString()
+                       + dimesions.ToString()
+                       + attr.ToString();
             }
         }
         public enum SymbolAttribute
@@ -103,6 +117,86 @@ namespace Compiler.Models
         public void WriteError(string message)
         {
             _errorFile.WriteLine("Error: " + message + ". Occured at Line: " + CurrentToken.Line + " Column: " + CurrentToken.Column);
+        }
+
+        public bool TransferStackToTable()
+        {
+            if (_stack.Count > 0)
+            {
+                var type = _stack.Pop();
+                if (type == Scanner.Type.ARRAYTOK.ToString())
+                {
+                    type = _stack.Pop();
+                    var count = _stack.Count;
+                    string upperBound = null;
+                    string identifier = null;
+                    var dimensions = new List<Tuple<string, string>>();
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        if (i == count - 1)
+                        {
+                            identifier = _stack.Pop();
+                            break;
+                        }
+                        if (upperBound == null)
+                        {
+                            upperBound = _stack.Pop();
+                        }
+                        else
+                        {
+                            dimensions.Add(Tuple.Create(_stack.Pop(), upperBound));
+                            upperBound = null;
+                        }
+                    }
+                    Symbol symbol = new Symbol()
+                    {
+                        Type = type,
+                        Identifier = identifier,
+                        Scope = new Stack<int>(),
+                        Dimensions = dimensions,
+                        Store = "array"
+                    };
+                    symbol.Scope.Push(_scope);
+                    SymbolTable.Add(identifier, symbol);
+                }
+                else
+                {
+                    var count = _stack.Count;
+                    for (int i = 0; i < count; i++)
+                    {
+                        string identifier = _stack.Pop();
+
+                        if (SymbolTable.Contains(identifier))
+                        {
+                            Symbol symbol = (Symbol)SymbolTable[identifier];
+                            if (symbol.Scope.Peek() != _scope)
+                            {
+                                symbol.Scope.Push(_scope);
+                            }
+                            else
+                            {
+                                WriteError("Declared the same veriable multiple times in the same scope");
+                                Console.WriteLine("Declared the same veriable multiple times in the same scope");
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            Symbol symbol = new Symbol()
+                            {
+                                Identifier = identifier.ToString(),
+                                Type = type.ToString(),
+                                Scope = new Stack<int>(),
+                                Store = "scalar"
+                            };
+                            symbol.Scope.Push(_scope);
+                            SymbolTable.Add(identifier.ToString(), symbol);
+                        }
+                    }
+                }
+            }
+            return true;
         }
 
         // <program> ::= program <identifier> ; <block> .
@@ -207,7 +301,6 @@ namespace Compiler.Models
                     GetNextToken();
                     if (CurrentToken.Type == Scanner.Type.IDENT)
                     {
-                        // add identity to stack
                         if (!MoreVariables())
                         {
                             WriteError("MoreVariables");
@@ -266,82 +359,12 @@ namespace Compiler.Models
                 WriteError("MoreDeclarations");
                 return false;
             }
-            if (_stack.Count > 0)
+            if (!TransferStackToTable())
             {
-                var type = _stack.Pop();
-                if (type == Scanner.Type.ARRAYTOK.ToString())
-                {
-                    type = _stack.Pop();
-                    var count = _stack.Count;
-                    string upperBound = null;
-                    string identifier = null;
-                    var dimensions = new List<Tuple<string, string>>();
-
-                    for (int i = 0; i < count; i++)
-                    {
-                        if (i == count - 1)
-                        {
-                            identifier = _stack.Pop();
-                            break;
-                        }
-                        if (upperBound == null)
-                        {
-                            upperBound = _stack.Pop();
-                        }
-                        else
-                        {
-                            dimensions.Add(Tuple.Create(_stack.Pop(), upperBound));
-                            upperBound = null;
-                        }
-                    }
-                    Symbol symbol = new Symbol()
-                    {
-                        Type = type,
-                        Identifier = identifier,
-                        Scope = new Stack<int>(),
-                        Dimensions = dimensions
-                    };
-                    symbol.Scope.Push(_scope);
-                    SymbolTable.Add(identifier, symbol);
-                }
-                else
-                {
-
-                    var count = _stack.Count;
-                    for (int i = 0; i < count; i++)
-                    {
-                        string identifier = _stack.Pop();
-
-                        if (SymbolTable.Contains(identifier))
-                        {
-                            Symbol symbol = (Symbol)SymbolTable[identifier];
-                            if (symbol.Scope.Peek() != _scope)
-                            {
-                                symbol.Scope.Push(_scope);
-                            }
-                            else
-                            {
-                                WriteError("Declared the same veriable multiple times in the same scope");
-                                Console.WriteLine("Declared the same veriable multiple times in the same scope");
-                                return false;
-                            }
-                        }
-                        else
-                        {
-                            Symbol symbol = new Symbol()
-                            {
-                                Identifier = identifier.ToString(),
-                                Type = type.ToString(),
-                                Scope = new Stack<int>()
-                            };
-                            symbol.Scope.Push(_scope);
-                            SymbolTable.Add(identifier.ToString(), symbol);
-                        }
-                        Console.Write(identifier + " ");
-                    }
-                }
-                Console.Write("Type: " + type + "\n");
+                WriteError("Failed to put variables in symbol table");
+                return false;
             }
+
             return true;
         }
 
@@ -377,7 +400,6 @@ namespace Compiler.Models
         {
             if (CurrentToken.Type == Scanner.Type.ARRAYTOK)
             {
-                // _stack.Push("array");
                 if (!ArrayType())
                 {
                     WriteError("ArrayType");
@@ -417,7 +439,6 @@ namespace Compiler.Models
                 WriteError("Index range returned an error");
                 return false;
             }
-            //GetNextToken();
             if (CurrentToken.Type != Scanner.Type.OFTOK)
             {
                 WriteError("Missing of keyword after array[]");
@@ -582,6 +603,8 @@ namespace Compiler.Models
                 return false;
             }
             var procIdentifier = CurrentToken.Lexeme;
+            int col = CurrentToken.Column;
+            int line = CurrentToken.Line;
             GetNextToken();
             if (CurrentToken.Type != Scanner.Type.LPAREN)
             {
@@ -599,6 +622,57 @@ namespace Compiler.Models
                 WriteError("Missing semi colon after parameter list ()");
                 return false;
             }
+            // have them all on the stack here ------------------------------------------------
+            List<string> parameterType = new List<string>();
+            List<string> passByType = new List<string>();
+            string store = null;
+            if (_stack.Count > 0)
+            {
+                int count = _stack.Count;
+                int i = 0;
+                while(i < count)
+                {
+                    string identifier = _stack.Pop();
+                    i++;
+                    if (_stack.Peek() == "*")
+                    {
+                        passByType.Add("ref");
+                        store = "rparam";
+                        _stack.Pop();
+                        i++;
+                    }
+                    else
+                    {
+                        passByType.Add("val");
+                        store = "vparam";
+                    }
+                    string type = _stack.Pop();
+                    i++;
+                    parameterType.Add(type);
+                    Symbol symbol = new Symbol()
+                    {
+                        Identifier = identifier,
+                        Type = type,
+                        Store = store,
+                        Scope = new Stack<int>()
+                    };
+                    symbol.Scope.Push(_scope);
+                    SymbolTable.Add(identifier, symbol);
+                }
+            }
+            Symbol procSymbol = new Symbol()
+            {
+                Identifier = procIdentifier,
+                Type = "none",
+                Store = "proc",
+                Scope = new Stack<int>(),
+                Column = col,
+                Line = line,
+                ParameterType = parameterType,
+                PassByType = passByType
+            };
+            procSymbol.Scope.Push(_scope);
+            SymbolTable.Add(procIdentifier, procSymbol);
             GetNextToken();
             if (!Block())
             {
@@ -635,6 +709,7 @@ namespace Compiler.Models
         {
             if (CurrentToken.Type == Scanner.Type.ASTRSK)
             {
+                _stack.Push(CurrentToken.Lexeme);
                 GetNextToken();
                 if (!PassByReference())
                 {
@@ -651,7 +726,7 @@ namespace Compiler.Models
             return true;
         }
 
-        //<pass by value> ::= <identifier> <more params>
+        // <pass by value> ::= <identifier> <more params>
         public bool PassByValue()
         {
             if (CurrentToken.Type != Scanner.Type.IDENT)
@@ -659,6 +734,8 @@ namespace Compiler.Models
                 WriteError("Missing Identifier in pass by value parameter");
                 return false;
             }
+            // push onto the stack
+            _stack.Push(CurrentToken.Lexeme);
             GetNextToken();
             if (!MoreParameters())
             {
@@ -668,7 +745,7 @@ namespace Compiler.Models
             return true;
         }
 
-        //<pass by reference>	::=	<identifier> <more params>
+        // <pass by reference>	::=	<identifier> <more params>
         public bool PassByReference()
         {
             if (CurrentToken.Type != Scanner.Type.IDENT)
@@ -676,7 +753,8 @@ namespace Compiler.Models
                 WriteError("Missing Identifier in pass by reference parameter");
                 return false;
             }
-            GetNextToken(); //  
+            _stack.Push(CurrentToken.Lexeme);
+            GetNextToken();  
             if (!MoreParameters())
             {
                 WriteError("MoreParameters");
@@ -685,7 +763,7 @@ namespace Compiler.Models
             return true;
         }
 
-        //<more params> ::= , <type identifier> <param passing> | )
+        // <more params> ::= , <type identifier> <param passing> | )
         // <simple type> was combined with <type identifier>
         public bool MoreParameters()
         {
@@ -715,7 +793,7 @@ namespace Compiler.Models
         #endregion
 
         #region Statement Section
-        //<statement part> ::= <compound statement>
+        // <statement part> ::= <compound statement>
         public bool StatementSection()
         {
             if (!CompoundStatement())
@@ -726,7 +804,7 @@ namespace Compiler.Models
             return true;
         }
 
-        //<compound statement> ::= begin<statement> <more stmts> end
+        // <compound statement> ::= begin<statement> <more stmts> end
         // NOTE: The final statement before an END is not terminated by a semicolon.
         public bool CompoundStatement()
         {
@@ -755,7 +833,7 @@ namespace Compiler.Models
             return true;
         }
 
-        //<more stmts> ::= ; <statement> <more stmts> | <empty-string>
+        // <more stmts> ::= ; <statement> <more stmts> | <empty-string>
         public bool MoreStatements()
         {
             if (CurrentToken.Type != Scanner.Type.SEMICOLON)
@@ -777,7 +855,7 @@ namespace Compiler.Models
             return true;
         }
 
-        //<statement>	::=	<simple statement>  | <structured statement>
+        // <statement>	::=	<simple statement>  | <structured statement>
         public bool Statement()
         {
             switch (CurrentToken.Type)
@@ -818,7 +896,7 @@ namespace Compiler.Models
             }
         }
 
-        //<simple statement> ::= <assignment statement> | <procedure call> | <read statement> | <write statement>
+        // <simple statement> ::= <assignment statement> | <procedure call> | <read statement> | <write statement>
         public bool SimpleStatement()
         {
             if (NextToken.Type == Scanner.Type.ASSIGN)
@@ -861,7 +939,7 @@ namespace Compiler.Models
             return false;
         }
 
-        //<assignment statement> ::= <variable> := <expression>
+        // <assignment statement> ::= <variable> := <expression>
         public bool AssignmentStatement()
         {
             if (!Variable())
@@ -928,7 +1006,7 @@ namespace Compiler.Models
             return true;
         }
 
-        //<more args>	::=	, <expression> <more args> | )
+        // <more args> ::= , <expression> <more args> | )
         public bool MoreArguments()
         {
             if (CurrentToken.Type == Scanner.Type.RPAREN)
@@ -984,7 +1062,7 @@ namespace Compiler.Models
             return true;
         }
 
-        //<write statement>	::=	write( <expression> )
+        // <write statement>	::=	write( <expression> )
         public bool WriteStatement()
         {
             if (CurrentToken.Type != Scanner.Type.WRITETOK)
@@ -1237,7 +1315,7 @@ namespace Compiler.Models
             }
             return true;
         }
-        //<rel exp> ::= <rel op> <simple expression> | <empty-string>
+        // <rel exp> ::= <rel op> <simple expression> | <empty-string>
         public bool RelationalExpression()
         {
             // <empty-string>
