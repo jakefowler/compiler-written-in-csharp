@@ -9,14 +9,15 @@ namespace Compiler
     {
         static void Main(string[] args)
         {
-            string filename = "rude.pas";
+            string filename = "ptestvar.pas";
             bool runScanner = false;
             bool runParser = false;
-            bool verbose = true;
+            bool verbose = false;
             if(args.Length < 1)
             {
                 Console.WriteLine("Pass in file name with -f filename, -s to run the scanner, -p to run the parser, and -v for printing verbose information.");
                 runParser = true;
+                verbose = true;
             }
             for (int i = 0; i < args.Length; i++)
             {
@@ -29,7 +30,7 @@ namespace Compiler
                 {
                     runScanner = true;
                 }
-                if(args[i] == "-s")
+                if(args[i] == "-p")
                 {
                     runParser = true;
                 }
