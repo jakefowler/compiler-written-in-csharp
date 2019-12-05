@@ -24,7 +24,6 @@ namespace Compiler.Models
             public string Type;
             public Stack<int> Scope;
             public List<Tuple<string, string>> Dimensions;
-            public Hashtable Attributes;
             public string Store;
             public List<string> ParameterType;
             public List<string> PassByType;
@@ -32,46 +31,44 @@ namespace Compiler.Models
             public int Line;
             public override string ToString()
             {
-                StringBuilder scope = new StringBuilder();
-                foreach(var s in Scope)
+                StringBuilder output = new StringBuilder();
+                output.Append("Symbol: " + Identifier);
+                output.Append("\tType: " + Type);
+                output.Append("\tStore: " + Store);
+                output.Append("\tLine: " + Line);
+                output.Append("\tColumn: " + Column);
+                if (ParameterType != null && ParameterType.Count == PassByType.Count)
                 {
-                    scope.Append(s + ", ");
-                }
-                StringBuilder attr = new StringBuilder();
-                if (Attributes != null)
-                {
-                    foreach(var a in Attributes.Keys)
+                    output.Append("\tParameters: " + ParameterType.Count + " (");
+                    for (int i = 0; i < ParameterType.Count; i++)
                     {
-                        attr.Append(a + ": " + Attributes[a] + " ");
+                        output.Append(ParameterType[i] + "-" + PassByType[i] + ",");
                     }
+                    output.Length--;
+                    output.Append(")");
                 }
-                StringBuilder dimesions = new StringBuilder();
+                output.Append("\tScopes: ");
+                foreach (var s in Scope)
+                {
+                    output.Append(s + ",");
+                }
+                output.Length--;
+
                 if (Dimensions != null)
                 {
-                    dimesions.Append(" Number of Dimensions: " + Dimensions.Count + " (");
+                    output.Append("\tNumber of Dimensions: " + Dimensions.Count + " (");
                     foreach(Tuple<string, string> dim in Dimensions)
                     {
-                        dimesions.Append(dim.Item1 + ".." + dim.Item2 + ",");
+                        output.Append(dim.Item1 + ".." + dim.Item2 + ",");
                     }
                     // remove the last comma
-                    dimesions.Length--;
-                    dimesions.Append(")");
+                    output.Length--;
+                    output.Append(")");
                 }
-                return "Symbol: "
-                       + Identifier
-                       + " Type: "
-                       + Type
-                       + " Store: "
-                       + Store
-                       + " Scope: "
-                       + scope.ToString()
-                       + dimesions.ToString()
-                       + attr.ToString();
+                return output.ToString();
             }
         }
-        public enum SymbolAttribute
-        {
-        }
+
         public Parser(Scanner scanner, string path = "")
         {
             _scanner = scanner;
