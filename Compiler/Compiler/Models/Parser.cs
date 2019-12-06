@@ -121,47 +121,61 @@ namespace Compiler.Models
 
         public void WriteAssembly()
         {
-            WriteExports();
-            WriteImports();
-            WriteInitializedData();
-            WriteUninitializedData();
-            WriteAsmCode();
+            if (_assemblyFile.BaseStream != null)
+            {
+                WriteExports();
+                WriteImports();
+                WriteInitializedData();
+                WriteUninitializedData();
+                WriteAsmCode();
+            }
+            else
+            {
+                Console.WriteLine("Assembly file is closed");
+            }
         }
 
-        public void WriteHeader(string header)
+        private void WriteHeader(string header)
         {
             _assemblyFile.WriteLine(";-----------------------------");
             _assemblyFile.WriteLine("; " + header);
             _assemblyFile.WriteLine(";-----------------------------");
         }
 
-        public void WriteExports()
+        private void WriteExports()
         {
             WriteHeader("emports");
             _assemblyFile.WriteLine("global _main");
             _assemblyFile.WriteLine("EXPORT _main");
         }
 
-        public void WriteImports()
+        private void WriteImports()
         {
             WriteHeader("imports");
             _assemblyFile.WriteLine("extern _printf");
             _assemblyFile.WriteLine("extern _ExitProcess@4");
         }
 
-        public void WriteInitializedData()
+        private void WriteInitializedData()
         {
             WriteHeader("initialized data");
             _assemblyFile.WriteLine("section .data USE32");
         }
 
-        public void WriteUninitializedData()
+        private void WriteUninitializedData()
         {
             WriteHeader("uninitialized data");
             _assemblyFile.WriteLine("section .bss USE32");
+            foreach(Symbol symbol in SymbolTable.Values)
+            {
+                if (symbol.Type == "int")
+                {
+                    _assemblyFile.WriteLine("\t" + symbol.Identifier + "\tresd\t1;");
+                }
+            }
         }
 
-        public void WriteAsmCode()
+        private void WriteAsmCode()
         {
             WriteHeader("code");
             _assemblyFile.WriteLine("section .code USE32");
