@@ -9,7 +9,7 @@ namespace Compiler
     {
         static void Main(string[] args)
         {
-            string filename = "ptestvar.pas";
+            string filename = "bob.pas";
             bool runScanner = false;
             bool runParser = false;
             bool verbose = false;

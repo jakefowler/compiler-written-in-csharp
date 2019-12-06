@@ -78,6 +78,7 @@ namespace Compiler.Models
             _stack = new Stack<Scanner.Token>();
             SymbolTable = new Hashtable();
             Program();
+            WriteAssembly();
             _errorFile.Close();
             _assemblyFile.Close();
         }
@@ -118,6 +119,54 @@ namespace Compiler.Models
             _errorFile.WriteLine("Error: " + message + ". Occured at Line: " + CurrentToken.Line + " Column: " + CurrentToken.Column);
         }
 
+        public void WriteAssembly()
+        {
+            WriteExports();
+            WriteImports();
+            WriteInitializedData();
+            WriteUninitializedData();
+            WriteAsmCode();
+        }
+
+        public void WriteHeader(string header)
+        {
+            _assemblyFile.WriteLine(";-----------------------------");
+            _assemblyFile.WriteLine("; " + header);
+            _assemblyFile.WriteLine(";-----------------------------");
+        }
+
+        public void WriteExports()
+        {
+            WriteHeader("emports");
+            _assemblyFile.WriteLine("global _main");
+            _assemblyFile.WriteLine("EXPORT _main");
+        }
+
+        public void WriteImports()
+        {
+            WriteHeader("imports");
+            _assemblyFile.WriteLine("extern _printf");
+            _assemblyFile.WriteLine("extern _ExitProcess@4");
+        }
+
+        public void WriteInitializedData()
+        {
+            WriteHeader("initialized data");
+            _assemblyFile.WriteLine("section .data USE32");
+        }
+
+        public void WriteUninitializedData()
+        {
+            WriteHeader("uninitialized data");
+            _assemblyFile.WriteLine("section .bss USE32");
+        }
+
+        public void WriteAsmCode()
+        {
+            WriteHeader("code");
+            _assemblyFile.WriteLine("section .code USE32");
+        }
+        
         public bool TransferStackToTable()
         {
             if (_stack.Count > 0)
