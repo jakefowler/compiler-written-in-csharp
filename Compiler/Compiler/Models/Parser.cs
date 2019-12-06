@@ -170,7 +170,17 @@ namespace Compiler.Models
             {
                 if (symbol.Type == "int")
                 {
-                    _assemblyFile.WriteLine("\t" + symbol.Identifier + "\tresd\t1;");
+                    _assemblyFile.WriteLine("\t"
+                                            + symbol.Identifier
+                                            + (symbol.Identifier.Length < 4 ? "\t" : "") 
+                                            + "\tresd\t1;");
+                }
+                else if (symbol.Type == "string")
+                {
+                    _assemblyFile.WriteLine("\t"
+                                            + symbol.Identifier
+                                            + (symbol.Identifier.Length < 4 ? "\t" : "") 
+                                            + "\tresq\t16;");
                 }
             }
         }
