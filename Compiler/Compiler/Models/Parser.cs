@@ -1039,6 +1039,9 @@ namespace Compiler.Models
                     WriteError("WriteStatement");
                     return false;
                 }
+
+
+
                 return true;
             }
             WriteError("Invalid simple statement");
@@ -1221,6 +1224,35 @@ namespace Compiler.Models
             {
                 WriteError("Missing right parethesis in write statement");
                 return false;
+            }
+            Scanner.Token varToWrite = _stack.Pop();
+            if (varToWrite.Type == Scanner.Type.INTCONST)
+            {
+                CodeSectionAsm.Append("\tpush\t" + varToWrite.Lexeme + "\n");
+                CodeSectionAsm.Append("\tpush\tnumberPrinter\n");
+                CodeSectionAsm.Append("\tcall\t_printf\n");
+                CodeSectionAsm.Append("\tadd\tesp,\t0x08\n");
+            }
+            else if (varToWrite.Type == Scanner.Type.STRCONST)
+            {
+
+            }
+            else if (varToWrite.Type == Scanner.Type.IDENT)
+            {
+                if (SymbolTable.Contains(varToWrite.Lexeme))
+                {
+                    Symbol symbol = (Symbol)SymbolTable[varToWrite.Lexeme];
+                    if (!symbol.Scope.Contains(_scope))
+                    {
+                        WriteError("Tried to access variable in an invalid scope");
+                        Console.WriteLine("Tried to access variable in an invalid scope");
+                        return false;
+                    }
+                    CodeSectionAsm.Append("\tpush\tDWORD[" + symbol.Identifier + "]\n");
+                    CodeSectionAsm.Append("\tpush\tnumberPrinter\n");
+                    CodeSectionAsm.Append("\tcall\t_printf\n");
+                    CodeSectionAsm.Append("\tadd\tesp,\t0x08\n");
+                }
             }
             GetNextToken();
             return true;
