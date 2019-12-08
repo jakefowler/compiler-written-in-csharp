@@ -17,6 +17,7 @@ namespace Compiler.Models
         public Hashtable SymbolTable { get; set; }
         public Scanner.Token CurrentToken { get; set; }
         public Scanner.Token NextToken { get; set; }
+        public StringBuilder CodeSectionAsm;
         public struct Symbol
         {
             public string Identifier;
@@ -77,6 +78,7 @@ namespace Compiler.Models
             _path = path;
             _stack = new Stack<Scanner.Token>();
             SymbolTable = new Hashtable();
+            CodeSectionAsm = new StringBuilder();
             Program();
             WriteAssembly();
             _errorFile.Close();
@@ -160,6 +162,8 @@ namespace Compiler.Models
         {
             WriteHeader("initialized data");
             _assemblyFile.WriteLine("section .data USE32");
+            _assemblyFile.WriteLine("\tstringPrinter\tdb\t\"%s\",0");
+            _assemblyFile.WriteLine("\tnumberPrinter\tdb\t\"%d\",0x0d,0x0a,0");
         }
 
         private void WriteUninitializedData()
@@ -172,15 +176,15 @@ namespace Compiler.Models
                 {
                     _assemblyFile.WriteLine("\t"
                                             + symbol.Identifier
-                                            + (symbol.Identifier.Length < 4 ? "\t" : "") 
-                                            + "\tresd\t1;");
+                                            //+ (symbol.Identifier.Length < 4 ? "\t" : "") 
+                                            + ":\tresd\t1");
                 }
                 else if (symbol.Type == "string")
                 {
                     _assemblyFile.WriteLine("\t"
                                             + symbol.Identifier
-                                            + (symbol.Identifier.Length < 4 ? "\t" : "") 
-                                            + "\tresq\t16;");
+                                            //+ (symbol.Identifier.Length < 4 ? "\t" : "") 
+                                            + ":\tresb\t128");
                 }
             }
         }
@@ -189,6 +193,12 @@ namespace Compiler.Models
         {
             WriteHeader("code");
             _assemblyFile.WriteLine("section .code USE32");
+            _assemblyFile.WriteLine("_main:");
+            _assemblyFile.Write(CodeSectionAsm);
+            _assemblyFile.WriteLine("exit:");
+            _assemblyFile.WriteLine("\tmov\teax,\t0x0");
+            _assemblyFile.WriteLine("\tcall\t_ExitProcess@4");
+
         }
         
         public bool TransferStackToTable()
@@ -957,6 +967,7 @@ namespace Compiler.Models
             {
 
                 case Scanner.Type.IDENT:
+                    // need to add assigning value to array index
                     if (NextToken.Type == Scanner.Type.ASSIGN || NextToken.Type == Scanner.Type.LPAREN)
                     {
                         if (!SimpleStatement())
@@ -1042,6 +1053,7 @@ namespace Compiler.Models
                 WriteError("Variable");
                 return false;
             }
+            Scanner.Token variable = _stack.Pop();
             if (CurrentToken.Type != Scanner.Type.ASSIGN)
             {
                 WriteError("Missing assign := operation");
@@ -1053,6 +1065,32 @@ namespace Compiler.Models
                 WriteError("Expression");
                 return false;
             }
+            if (_stack.Peek().Type == Scanner.Type.INTCONST)
+            {
+                Scanner.Token intToken = _stack.Pop();
+                if (SymbolTable.Contains(variable.Lexeme))
+                {
+                    Symbol symbol = (Symbol)SymbolTable[variable.Lexeme];
+                    if (!symbol.Scope.Contains(_scope))
+                    {
+                        WriteError("Tried to access variable in an invalid scope");
+                        Console.WriteLine("Tried to access variable in an invalid scope");
+                        return false;
+                    }
+                    CodeSectionAsm.Append("\tmov\tDWORD[" + symbol.Identifier + "],\t" + intToken.Lexeme + "\n");
+                }
+            }
+            else if (_stack.Peek().Type == Scanner.Type.STRCONST)
+            {
+                Scanner.Token strToken = _stack.Pop();
+                Console.WriteLine(strToken);
+            }
+            else
+            {
+                _stack.Clear();
+            }
+
+
             return true;
         }
 
@@ -1148,6 +1186,8 @@ namespace Compiler.Models
                 WriteError("Variable");
                 return false;
             }
+            /// -----------------------------------------------------------------------------------------------
+            Scanner.Token variable = _stack.Pop();
             if (CurrentToken.Type != Scanner.Type.RPAREN)
             {
                 WriteError("Missing right parethesis in read statement");
@@ -1560,12 +1600,14 @@ namespace Compiler.Models
             if (CurrentToken.Type == Scanner.Type.INTCONST)
             {
                 //Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
+                _stack.Push(CurrentToken);
                 GetNextToken();
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.STRCONST)
             {
                 //Console.WriteLine(CurrentToken.Lexeme + " " + CurrentToken.Type);
+                _stack.Push(CurrentToken);
                 GetNextToken();
                 return true;
             }
@@ -1797,6 +1839,7 @@ namespace Compiler.Models
                 WriteError("Identifier not found");
                 return false;
             }
+            _stack.Push(CurrentToken);
             GetNextToken();
             return true;
         }
