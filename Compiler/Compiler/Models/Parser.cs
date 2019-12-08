@@ -14,6 +14,8 @@ namespace Compiler.Models
         private readonly string _path;
         private Stack<Scanner.Token> _stack;
         private int _scope = 0;
+        // used to generate a unique name for string constants
+        private int _genStrCounter = 0;
         public Hashtable SymbolTable { get; set; }
         public Scanner.Token CurrentToken { get; set; }
         public Scanner.Token NextToken { get; set; }
@@ -29,6 +31,7 @@ namespace Compiler.Models
             public List<string> PassByType;
             public int Column;
             public int Line;
+            public string Value;
             public override string ToString()
             {
                 StringBuilder output = new StringBuilder();
@@ -67,6 +70,10 @@ namespace Compiler.Models
                     // remove the last comma
                     output.Length--;
                     output.Append(")");
+                }
+                if (Value != null)
+                {
+                    output.Append("\tValue: " + Value);
                 }
                 return output.ToString();
             }
@@ -164,6 +171,13 @@ namespace Compiler.Models
             _assemblyFile.WriteLine("section .data USE32");
             _assemblyFile.WriteLine("\tstringPrinter\tdb\t\"%s\",0");
             _assemblyFile.WriteLine("\tnumberPrinter\tdb\t\"%d\",0x0d,0x0a,0");
+            foreach(Symbol symbol in SymbolTable.Values)
+            {
+                if (symbol.Type == "string" && symbol.Value != null)
+                {
+                    _assemblyFile.WriteLine("\t" + symbol.Identifier + "\tdb\t" + symbol.Value + ",0x0d,0x0a,0");
+                }
+            }
         }
 
         private void WriteUninitializedData()
@@ -179,7 +193,7 @@ namespace Compiler.Models
                                             //+ (symbol.Identifier.Length < 4 ? "\t" : "") 
                                             + ":\tresd\t1");
                 }
-                else if (symbol.Type == "string")
+                else if (symbol.Type == "string" && symbol.Value == null)
                 {
                     _assemblyFile.WriteLine("\t"
                                             + symbol.Identifier
@@ -1235,7 +1249,26 @@ namespace Compiler.Models
             }
             else if (varToWrite.Type == Scanner.Type.STRCONST)
             {
-
+                Symbol symbol = new Symbol()
+                {
+                    Identifier = "_s" + _genStrCounter,
+                    Type = "string",
+                    Scope = new Stack<int>(),
+                    Store = "scalar",
+                    Column = varToWrite.Column,
+                    Line = varToWrite.Line,
+                    Value = varToWrite.Lexeme
+                };
+                symbol.Scope.Push(_scope);
+                _genStrCounter++;
+                CodeSectionAsm.Append("\tpush\t" + symbol.Identifier + "\n");
+                CodeSectionAsm.Append("\tpush\tstringPrinter\n");
+                CodeSectionAsm.Append("\tcall\t_printf\n");
+                CodeSectionAsm.Append("\tadd\tesp,\t0x08\n");
+                if (!SymbolTable.Contains(symbol.Identifier))
+                {
+                    SymbolTable.Add(symbol.Identifier, symbol);
+                }
             }
             else if (varToWrite.Type == Scanner.Type.IDENT)
             {
