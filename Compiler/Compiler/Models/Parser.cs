@@ -162,6 +162,7 @@ namespace Compiler.Models
         {
             WriteHeader("imports");
             _assemblyFile.WriteLine("extern _printf");
+            _assemblyFile.WriteLine("extern _scanf");
             _assemblyFile.WriteLine("extern _ExitProcess@4");
         }
 
@@ -169,13 +170,15 @@ namespace Compiler.Models
         {
             WriteHeader("initialized data");
             _assemblyFile.WriteLine("section .data USE32");
-            _assemblyFile.WriteLine("\tstringPrinter\tdb\t\"%s\",0");
-            _assemblyFile.WriteLine("\tnumberPrinter\tdb\t\"%d\",0x0d,0x0a,0");
+            _assemblyFile.WriteLine("\tstringPrinter:\tdb\t\"%s\",0");
+            _assemblyFile.WriteLine("\tnumberPrinter:\tdb\t\"%d\",0x0d,0x0a,0");
+            _assemblyFile.WriteLine("\tformatIntIn:\tdb\t\"%d\",0");
+            _assemblyFile.WriteLine("\tformatStrIn:\tdb\t\"%s\",0");
             foreach(Symbol symbol in SymbolTable.Values)
             {
                 if (symbol.Type == "string" && symbol.Value != null)
                 {
-                    _assemblyFile.WriteLine("\t" + symbol.Identifier + "\tdb\t" + symbol.Value + ",0x0d,0x0a,0");
+                    _assemblyFile.WriteLine("\t" + symbol.Identifier + ":\tdb\t" + symbol.Value + ",0x0d,0x0a,0");
                 }
             }
         }
@@ -188,17 +191,11 @@ namespace Compiler.Models
             {
                 if (symbol.Type == "int")
                 {
-                    _assemblyFile.WriteLine("\t"
-                                            + symbol.Identifier
-                                            //+ (symbol.Identifier.Length < 4 ? "\t" : "") 
-                                            + ":\tresd\t1");
+                    _assemblyFile.WriteLine("\t" + symbol.Identifier + ":\tresd\t1");
                 }
                 else if (symbol.Type == "string" && symbol.Value == null)
                 {
-                    _assemblyFile.WriteLine("\t"
-                                            + symbol.Identifier
-                                            //+ (symbol.Identifier.Length < 4 ? "\t" : "") 
-                                            + ":\tresb\t128");
+                    _assemblyFile.WriteLine("\t" + symbol.Identifier + ":\tresb\t128");
                 }
             }
         }
@@ -212,7 +209,6 @@ namespace Compiler.Models
             _assemblyFile.WriteLine("exit:");
             _assemblyFile.WriteLine("\tmov\teax,\t0x0");
             _assemblyFile.WriteLine("\tcall\t_ExitProcess@4");
-
         }
         
         public bool TransferStackToTable()
@@ -981,7 +977,6 @@ namespace Compiler.Models
             {
 
                 case Scanner.Type.IDENT:
-                    // need to add assigning value to array index
                     if (NextToken.Type == Scanner.Type.ASSIGN || NextToken.Type == Scanner.Type.LPAREN)
                     {
                         if (!SimpleStatement())
@@ -1203,13 +1198,39 @@ namespace Compiler.Models
                 WriteError("Variable");
                 return false;
             }
-            /// -----------------------------------------------------------------------------------------------
-            Scanner.Token variable = _stack.Pop();
             if (CurrentToken.Type != Scanner.Type.RPAREN)
             {
                 WriteError("Missing right parethesis in read statement");
                 return false;
             }
+            Scanner.Token varToken = _stack.Pop();
+            if (SymbolTable.Contains(varToken.Lexeme))
+            {
+                Symbol symbol = (Symbol)SymbolTable[varToken.Lexeme];
+                if (!symbol.Scope.Contains(_scope))
+                {
+                    WriteError("Tried to access variable in an invalid scope");
+                    Console.WriteLine("Tried to access variable in an invalid scope");
+                    return false;
+                }
+                CodeSectionAsm.AppendLine("\tpush\t" + symbol.Identifier);
+                if (symbol.Type == "int")
+                {
+                    CodeSectionAsm.AppendLine("\tpush\tformatIntIn");
+                }
+                else if (symbol.Type == "string")
+                {
+                    CodeSectionAsm.AppendLine("\tpush\tformatStrIn");
+                }
+                else
+                {
+                    Console.WriteLine("Currently the compiler can only read in integers and strings");
+                    return false;
+                }
+                CodeSectionAsm.AppendLine("\tcall\t_scanf");
+                CodeSectionAsm.AppendLine("\tadd\tesp,\t0x08");
+            }
+
             GetNextToken();
             return true;
         }
@@ -1281,10 +1302,24 @@ namespace Compiler.Models
                         Console.WriteLine("Tried to access variable in an invalid scope");
                         return false;
                     }
-                    CodeSectionAsm.Append("\tpush\tDWORD[" + symbol.Identifier + "]\n");
-                    CodeSectionAsm.Append("\tpush\tnumberPrinter\n");
-                    CodeSectionAsm.Append("\tcall\t_printf\n");
-                    CodeSectionAsm.Append("\tadd\tesp,\t0x08\n");
+                    if (symbol.Type == "int")
+                    {
+                        CodeSectionAsm.Append("\tpush\tDWORD[" + symbol.Identifier + "]\n");
+                        CodeSectionAsm.Append("\tpush\tnumberPrinter\n");
+                        CodeSectionAsm.Append("\tcall\t_printf\n");
+                        CodeSectionAsm.Append("\tadd\tesp,\t0x08\n");
+                    }
+                    else if (symbol.Type == "string")
+                    {
+                        CodeSectionAsm.Append("\tpush\t" + symbol.Identifier + "\n");
+                        CodeSectionAsm.Append("\tpush\tstringPrinter\n");
+                        CodeSectionAsm.Append("\tcall\t_printf\n");
+                        CodeSectionAsm.Append("\tadd\tesp,\t0x08\n");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Currently the compiler can only handle printing strings and integers");
+                    }
                 }
             }
             GetNextToken();
