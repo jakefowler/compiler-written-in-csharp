@@ -14,8 +14,8 @@ namespace Compiler.Models
         private readonly string _path;
         private Stack<Scanner.Token> _stack;
         private int _scope = 0;
-        // used to generate a unique name for string constants
-        private int _genStrCounter = 0;
+        // used to generate a unique name for temporary values like string constants and expressions
+        private int _genTempCounter = 0;
         public Hashtable SymbolTable { get; set; }
         public Scanner.Token CurrentToken { get; set; }
         public Scanner.Token NextToken { get; set; }
@@ -1065,7 +1065,7 @@ namespace Compiler.Models
                 WriteError("Variable");
                 return false;
             }
-            Scanner.Token variable = _stack.Pop();
+            Scanner.Token varToAssign = _stack.Pop();
             if (CurrentToken.Type != Scanner.Type.ASSIGN)
             {
                 WriteError("Missing assign := operation");
@@ -1077,32 +1077,88 @@ namespace Compiler.Models
                 WriteError("Expression");
                 return false;
             }
-            if (_stack.Peek().Type == Scanner.Type.INTCONST)
+            if (_stack.Count > 1)
             {
-                Scanner.Token intToken = _stack.Pop();
-                if (SymbolTable.Contains(variable.Lexeme))
+                var expression = _stack.ToArray();
+                Scanner.Token firstTok = expression[expression.Length - 1];
+                string first = firstTok.Type == Scanner.Type.IDENT ? "DWORD[" + firstTok.Lexeme + "]" : firstTok.Lexeme;
+                CodeSectionAsm.AppendLine("\tmov\tesi,\t" + first);
+
+                for (int i = expression.Length - 2; i >= 0; i--)
                 {
-                    Symbol symbol = (Symbol)SymbolTable[variable.Lexeme];
+                    Scanner.Token opTok = expression[i];
+                    i--;
+                    Scanner.Token rightTok = expression[i];
+                    string right = rightTok.Type == Scanner.Type.IDENT ? "DWORD[" + rightTok.Lexeme + "]" : rightTok.Lexeme;
+                    if (opTok.Type == Scanner.Type.MINUS)
+                    {
+                        CodeSectionAsm.AppendLine("\tsub\tesi,\t" + right);
+                    }
+                    else if (opTok.Type == Scanner.Type.PLUS)
+                    {
+                        CodeSectionAsm.AppendLine("\tadd\tesi,\t" + right);
+                    }
+                }
+                if (SymbolTable.Contains(varToAssign.Lexeme))
+                {
+                    Symbol symbol = (Symbol)SymbolTable[varToAssign.Lexeme];
                     if (!symbol.Scope.Contains(_scope))
                     {
-                        WriteError("Tried to access variable in an invalid scope");
-                        Console.WriteLine("Tried to access variable in an invalid scope");
+                        WriteError("Invalid scope");
+                        Console.WriteLine("Invalid scope");
                         return false;
                     }
-                    CodeSectionAsm.Append("\tmov\tDWORD[" + symbol.Identifier + "],\t" + intToken.Lexeme + "\n");
+                    CodeSectionAsm.AppendLine("\tmov\tDWORD[" + varToAssign.Lexeme + "],\tesi");
                 }
-            }
-            else if (_stack.Peek().Type == Scanner.Type.STRCONST)
-            {
-                Scanner.Token strToken = _stack.Pop();
-                Console.WriteLine(strToken);
             }
             else
             {
-                _stack.Clear();
+                // just regular assign
+                if (_stack.Peek().Type == Scanner.Type.INTCONST)
+                {
+                    Scanner.Token inttoken = _stack.Pop();
+                    if (SymbolTable.Contains(varToAssign.Lexeme))
+                    {
+                        Symbol symbol = (Symbol)SymbolTable[varToAssign.Lexeme];
+                        if (!symbol.Scope.Contains(_scope))
+                        {
+                            WriteError("tried to access variable in an invalid scope");
+                            Console.WriteLine("tried to access variable in an invalid scope");
+                            return false;
+                        }
+                        CodeSectionAsm.Append("\tmov\tDWORD[" + symbol.Identifier + "],\t" + inttoken.Lexeme + "\n");
+                    }
+                }
+                else if (_stack.Peek().Type == Scanner.Type.STRCONST)
+                {
+                    Scanner.Token strtoken = _stack.Pop();
+                    Console.WriteLine(strtoken);
+                }
+                else if (_stack.Peek().Type == Scanner.Type.IDENT)
+                {
+                    Scanner.Token identTok = _stack.Pop();
+                    if (SymbolTable.Contains(varToAssign.Lexeme) && SymbolTable.Contains(identTok.Lexeme))
+                    {
+                        Symbol assignSymbol = (Symbol)SymbolTable[varToAssign.Lexeme];
+                        Symbol rightSymbol = (Symbol)SymbolTable[identTok.Lexeme];
+                        if (!assignSymbol.Scope.Contains(_scope) || !rightSymbol.Scope.Contains(_scope))
+                        {
+                            WriteError("tried to access variable in an invalid scope");
+                            Console.WriteLine("tried to access variable in an invalid scope");
+                            return false;
+                        }
+                        if (assignSymbol.Type != rightSymbol.Type)
+                        {
+                            WriteError("Assigned variable to variable of different type");
+                            Console.WriteLine("Assigned variable to variable of different type");
+                            return false;
+                        }
+                        CodeSectionAsm.AppendLine("\tmov\teax,\tDWORD[" + rightSymbol.Identifier + "]");
+                        CodeSectionAsm.AppendLine("\tmov\tDWORD[" + assignSymbol.Identifier + "],\teax");
+                    }
+                }
             }
-
-
+            _stack.Clear();
             return true;
         }
 
@@ -1272,7 +1328,7 @@ namespace Compiler.Models
             {
                 Symbol symbol = new Symbol()
                 {
-                    Identifier = "_s" + _genStrCounter,
+                    Identifier = "_s" + _genTempCounter,
                     Type = "string",
                     Scope = new Stack<int>(),
                     Store = "scalar",
@@ -1281,7 +1337,7 @@ namespace Compiler.Models
                     Value = varToWrite.Lexeme
                 };
                 symbol.Scope.Push(_scope);
-                _genStrCounter++;
+                _genTempCounter++;
                 CodeSectionAsm.Append("\tpush\t" + symbol.Identifier + "\n");
                 CodeSectionAsm.Append("\tpush\tstringPrinter\n");
                 CodeSectionAsm.Append("\tcall\t_printf\n");
@@ -1676,6 +1732,39 @@ namespace Compiler.Models
                 WriteError("Factor");
                 return false;
             }
+            // dividing or multiplying here and adding the assembly code to keep order of precedence and just add and subtract at the top
+            Scanner.Token rightTok = _stack.Pop();
+            Scanner.Token opTok = _stack.Pop();
+            Scanner.Token leftTok = _stack.Pop();
+            string left = leftTok.Type == Scanner.Type.IDENT ? "DWORD[" + leftTok.Lexeme + "]" : leftTok.Lexeme;
+            string right = rightTok.Type == Scanner.Type.IDENT ? "DWORD[" + rightTok.Lexeme + "]" : rightTok.Lexeme;
+            // create temporary variable to store the answer
+            Symbol tempSymbol = new Symbol()
+            {
+                Identifier = "_temp" + _genTempCounter,
+                Type = "int",
+                Scope = new Stack<int>(),
+                Line = opTok.Line,
+                Column = opTok.Column
+            };
+            _genTempCounter++;
+            tempSymbol.Scope.Push(_scope);
+            SymbolTable.Add(tempSymbol.Identifier, tempSymbol);
+            if (opTok.Type == Scanner.Type.ASTRSK)
+            {
+                CodeSectionAsm.AppendLine("\tmov\tedi,\t" + left);
+                CodeSectionAsm.AppendLine("\timul\tedi,\t" + right);
+                CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\tedi");
+            }
+            else if (opTok.Type == Scanner.Type.SLASH)
+            {
+                CodeSectionAsm.AppendLine("\txor\tedx,\tedx");
+                CodeSectionAsm.AppendLine("\tmov\teax,\t" + left);
+                CodeSectionAsm.AppendLine("\tmov\tecx," + right);
+                CodeSectionAsm.AppendLine("\tdiv\tecx");
+                CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\teax");
+            }
+            _stack.Push(new Scanner.Token() { Type = Scanner.Type.IDENT, Lexeme = tempSymbol.Identifier, Column = opTok.Column, Line = opTok.Line });
             if (!MultiplyFactor())
             {
                 WriteError("MultiplyFactor");
@@ -1735,6 +1824,46 @@ namespace Compiler.Models
                 {
                     WriteError("Missing right parenthesis");
                     return false;
+                }
+                // make a temporary variable for the expression
+                // add assembly code for ( expression )
+                // add the variable onto the stack to bubble up to be add or subtracted from the other variables
+                if (_stack.Count > 1)
+                {
+                    Scanner.Token rightTok = _stack.Pop();
+                    Scanner.Token opTok = _stack.Pop();
+                    Scanner.Token leftTok = _stack.Pop();
+                    string left = leftTok.Type == Scanner.Type.IDENT ? "DWORD[" + leftTok.Lexeme + "]" : leftTok.Lexeme;
+                    string right = rightTok.Type == Scanner.Type.IDENT ? "DWORD[" + rightTok.Lexeme + "]" : rightTok.Lexeme;
+                    // create temporary variable to store the answer
+                    Symbol tempSymbol = new Symbol()
+                    {
+                        Identifier = "_temp" + _genTempCounter,
+                        Type = "int",
+                        Scope = new Stack<int>(),
+                        Line = opTok.Line,
+                        Column = opTok.Column
+                    };
+                    _genTempCounter++;
+                    tempSymbol.Scope.Push(_scope);
+                    SymbolTable.Add(tempSymbol.Identifier, tempSymbol);
+                    if (opTok.Type == Scanner.Type.MINUS)
+                    {
+                        CodeSectionAsm.AppendLine("\tmov\tesi,\t" + left);
+                        CodeSectionAsm.AppendLine("\tsub\tesi,\t" + right);
+                        CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\tesi");
+                    }
+                    else if (opTok.Type == Scanner.Type.PLUS)
+                    {
+                        CodeSectionAsm.AppendLine("\tmov\tesi,\t" + left);
+                        CodeSectionAsm.AppendLine("\tadd\tesi,\t" + right);
+                        CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\tesi");
+                    }
+                    _stack.Push(new Scanner.Token() { Type = Scanner.Type.IDENT, Lexeme = tempSymbol.Identifier, Column = opTok.Column, Line = opTok.Line });
+                }
+                else
+                {
+                    
                 }
                 GetNextToken();
                 return true;
@@ -1822,12 +1951,14 @@ namespace Compiler.Models
             if (CurrentToken.Type == Scanner.Type.PLUS)
             {
                 //Console.WriteLine(CurrentToken.Lexeme + " operation");
+                _stack.Push(CurrentToken);
                 GetNextToken();
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.MINUS)
             {
                 //Console.WriteLine(CurrentToken.Lexeme + " operation");
+                _stack.Push(CurrentToken);
                 GetNextToken();
                 return true;
             }
@@ -1847,12 +1978,14 @@ namespace Compiler.Models
             if (CurrentToken.Type == Scanner.Type.ASTRSK)
             {
                 //Console.WriteLine(CurrentToken.Lexeme + " operation");
+                _stack.Push(CurrentToken);
                 GetNextToken();
                 return true;
             }
             if (CurrentToken.Type == Scanner.Type.SLASH)
             {
                 //Console.WriteLine(CurrentToken.Lexeme + " operation");
+                _stack.Push(CurrentToken);
                 GetNextToken();
                 return true;
             }

@@ -17,68 +17,56 @@ section .data USE32
 	numberPrinter:	db	"%d",0x0d,0x0a,0
 	formatIntIn:	db	"%d",0
 	formatStrIn:	db	"%s",0
-	_s2:	db	"Testing reading in integers on the next line",0x0d,0x0a,0
-	_s5:	db	"String read in is:",0x0d,0x0a,0
-	_s1:	db	"Testing writing integers stored in variables on the next line",0x0d,0x0a,0
-	_s4:	db	"Testing reading in strings on the next line",0x0d,0x0a,0
-	_s3:	db	"Integer read in is:",0x0d,0x0a,0
-	_s0:	db	"Testing writing integers on the next line",0x0d,0x0a,0
+	_s7:	db	"The string you entered is...",0x0d,0x0a,0
+	_s0:	db	"Beginning Program",0x0d,0x0a,0
+	_s6:	db	"The meaning of life, the univers and everything is...",0x0d,0x0a,0
+	_s8:	db	" ",0x0d,0x0a,0
+	_s2:	db	"The value entered was ",0x0d,0x0a,0
+	_s5:	db	" ",0x0d,0x0a,0
+	_s1:	db	"Please enter an integer.",0x0d,0x0a,0
+	_s3:	db	" ",0x0d,0x0a,0
+	_s4:	db	"Please enter a string",0x0d,0x0a,0
 ;-----------------------------
 ; uninitialized data
 ;-----------------------------
 section .bss USE32
-	num2:	resd	1
-	num3:	resd	1
-	num1:	resd	1
-	str:	resb	128
+	val1:	resd	1
+	astring:	resb	128
+	val2:	resd	1
 ;-----------------------------
 ; code
 ;-----------------------------
 section .code USE32
 _main:
-	push	str
-	push	stringPrinter
-	call	_printf
-	add	esp,	0x08
-	mov	DWORD[num1],	3
-	mov	DWORD[num2],	-1
 	push	_s0
 	push	stringPrinter
-	call	_printf
-	add	esp,	0x08
-	push	1888
-	push	numberPrinter
 	call	_printf
 	add	esp,	0x08
 	push	_s1
 	push	stringPrinter
 	call	_printf
 	add	esp,	0x08
-	push	DWORD[num2]
-	push	numberPrinter
-	call	_printf
+	push	val1
+	push	formatIntIn
+	call	_scanf
 	add	esp,	0x08
 	push	_s2
 	push	stringPrinter
 	call	_printf
 	add	esp,	0x08
-	push	num1
-	push	formatIntIn
-	call	_scanf
+	push	DWORD[val1]
+	push	numberPrinter
+	call	_printf
 	add	esp,	0x08
 	push	_s3
 	push	stringPrinter
-	call	_printf
-	add	esp,	0x08
-	push	DWORD[num1]
-	push	numberPrinter
 	call	_printf
 	add	esp,	0x08
 	push	_s4
 	push	stringPrinter
 	call	_printf
 	add	esp,	0x08
-	push	str
+	push	astring
 	push	formatStrIn
 	call	_scanf
 	add	esp,	0x08
@@ -86,7 +74,24 @@ _main:
 	push	stringPrinter
 	call	_printf
 	add	esp,	0x08
-	push	str
+	mov	DWORD[val2],	42
+	push	_s6
+	push	stringPrinter
+	call	_printf
+	add	esp,	0x08
+	push	DWORD[val2]
+	push	numberPrinter
+	call	_printf
+	add	esp,	0x08
+	push	_s7
+	push	stringPrinter
+	call	_printf
+	add	esp,	0x08
+	push	astring
+	push	stringPrinter
+	call	_printf
+	add	esp,	0x08
+	push	_s8
 	push	stringPrinter
 	call	_printf
 	add	esp,	0x08
