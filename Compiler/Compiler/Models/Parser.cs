@@ -1116,7 +1116,7 @@ namespace Compiler.Models
                 // just regular assign
                 if (_stack.Peek().Type == Scanner.Type.INTCONST)
                 {
-                    Scanner.Token inttoken = _stack.Pop();
+                    Scanner.Token intToken = _stack.Pop();
                     if (SymbolTable.Contains(varToAssign.Lexeme))
                     {
                         Symbol symbol = (Symbol)SymbolTable[varToAssign.Lexeme];
@@ -1126,13 +1126,32 @@ namespace Compiler.Models
                             Console.WriteLine("tried to access variable in an invalid scope");
                             return false;
                         }
-                        CodeSectionAsm.Append("\tmov\tDWORD[" + symbol.Identifier + "],\t" + inttoken.Lexeme + "\n");
+                        CodeSectionAsm.Append("\tmov\tDWORD[" + symbol.Identifier + "],\t" + intToken.Lexeme + "\n");
                     }
                 }
                 else if (_stack.Peek().Type == Scanner.Type.STRCONST)
                 {
-                    Scanner.Token strtoken = _stack.Pop();
-                    Console.WriteLine(strtoken);
+                    Scanner.Token strTok = _stack.Pop();
+                    Symbol symbol = new Symbol()
+                    {
+                        Identifier = "_s" + _genTempCounter,
+                        Type = "string",
+                        Scope = new Stack<int>(),
+                        Store = "scalar",
+                        Column = strTok.Column,
+                        Line = strTok.Line,
+                        Value = strTok.Lexeme
+                    };
+                    symbol.Scope.Push(_scope);
+                    _genTempCounter++;
+                    CodeSectionAsm.Append("\tpush\t" + symbol.Identifier + "\n");
+                    CodeSectionAsm.Append("\tpush\tstringPrinter\n");
+                    CodeSectionAsm.Append("\tcall\t_printf\n");
+                    CodeSectionAsm.Append("\tadd\tesp,\t0x08\n");
+                    if (!SymbolTable.Contains(symbol.Identifier))
+                    {
+                        SymbolTable.Add(symbol.Identifier, symbol);
+                    }
                 }
                 else if (_stack.Peek().Type == Scanner.Type.IDENT)
                 {

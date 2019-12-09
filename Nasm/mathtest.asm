@@ -17,28 +17,29 @@ section .data USE32
 	numberPrinter:	db	"%d",0x0d,0x0a,0
 	formatIntIn:	db	"%d",0
 	formatStrIn:	db	"%s",0
-	_s14:	db	"val1 = (10 * (11 + 12) / 13 + (14 * 15))",0x0d,0x0a,0
-	_s0:	db	"Beginning Program",0x0d,0x0a,0
-	_s5:	db	"val1 = 20 / 5",0x0d,0x0a,0
 	_s1:	db	"val1 = 1 + 2 + 3 + 4",0x0d,0x0a,0
+	_s14:	db	"val1 = (10 * (11 + 12) / 13 + (14 * 15))",0x0d,0x0a,0
 	_s3:	db	"val2 = 3 * 4",0x0d,0x0a,0
+	_s5:	db	"val1 = 20 / 5",0x0d,0x0a,0
 	_s8:	db	"val2 = 6 - 7 * (8+9)",0x0d,0x0a,0
+	_s0:	db	"Beginning Program",0x0d,0x0a,0
+	_s15:	db	"this string was assigned to variable astring",0x0d,0x0a,0
 ;-----------------------------
 ; uninitialized data
 ;-----------------------------
 section .bss USE32
-	astring:	resb	128
-	val2:	resd	1
-	_temp2:	resd	1
 	_temp13:	resd	1
-	_temp7:	resd	1
-	_temp4:	resd	1
 	_temp12:	resd	1
 	val1:	resd	1
-	_temp10:	resd	1
-	_temp9:	resd	1
-	_temp6:	resd	1
+	astring:	resb	128
 	_temp11:	resd	1
+	_temp9:	resd	1
+	_temp4:	resd	1
+	_temp10:	resd	1
+	_temp7:	resd	1
+	val2:	resd	1
+	_temp6:	resd	1
+	_temp2:	resd	1
 ;-----------------------------
 ; code
 ;-----------------------------
@@ -131,6 +132,14 @@ _main:
 	add	esp,	0x08
 	push	DWORD[val1]
 	push	numberPrinter
+	call	_printf
+	add	esp,	0x08
+	push	_s15
+	push	stringPrinter
+	call	_printf
+	add	esp,	0x08
+	push	astring
+	push	stringPrinter
 	call	_printf
 	add	esp,	0x08
 exit:
