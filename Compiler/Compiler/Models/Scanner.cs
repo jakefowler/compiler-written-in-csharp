@@ -263,16 +263,39 @@ namespace Compiler.Models
                             // negative integer constants
                             if (_lineLoc < _lineText.Length - 1 && char.IsDigit(_lineText[_lineLoc + 1]))
                             {
-                                System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
-                                _lineLoc++;
-                                while (char.IsDigit(_lineText[_lineLoc]) && _lineLoc < _lineText.Length)
+                                bool isNegativeInt = false;
+                                int i = _lineLoc - 1;
+                                while (i >= 0)
                                 {
-                                    stringBuilder.Append(_lineText[_lineLoc]);
-                                    _lineLoc++;
+                                    if (_lineText[i] == ' ' || _lineText[i] == '\t')
+                                    {
+                                        i--;
+                                        continue;
+                                    }
+                                    if (char.IsDigit(_lineText[i]))
+                                    {
+                                        // it's a regular minus sign
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        isNegativeInt = true;
+                                        break;
+                                    }
                                 }
-                                token.Lexeme += stringBuilder.ToString();
-                                token.Type = Type.INTCONST;
-                                break;
+                                if (isNegativeInt)
+                                {
+                                    System.Text.StringBuilder stringBuilder = new System.Text.StringBuilder();
+                                    _lineLoc++;
+                                    while (char.IsDigit(_lineText[_lineLoc]) && _lineLoc < _lineText.Length)
+                                    {
+                                        stringBuilder.Append(_lineText[_lineLoc]);
+                                        _lineLoc++;
+                                    }
+                                    token.Lexeme += stringBuilder.ToString();
+                                    token.Type = Type.INTCONST;
+                                    break;
+                                }
                             }
                             _lineLoc++;
                             token.Type = Type.MINUS;
