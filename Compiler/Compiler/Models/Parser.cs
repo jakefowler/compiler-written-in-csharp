@@ -15,7 +15,8 @@ namespace Compiler.Models
         private Stack<Scanner.Token> _stack;
         private int _scope = 0;
         // used to generate a unique name for temporary values like string constants and expressions
-        private int _genTempCounter = 0;
+        private int _genStrCounter = 0;
+        private int _genIntCounter = 0;
         public Hashtable SymbolTable { get; set; }
         public Scanner.Token CurrentToken { get; set; }
         public Scanner.Token NextToken { get; set; }
@@ -1079,16 +1080,46 @@ namespace Compiler.Models
             }
             if (_stack.Count > 1)
             {
-                var expression = _stack.ToArray();
-                Scanner.Token firstTok = expression[expression.Length - 1];
+                List<Scanner.Token> expression = new List<Scanner.Token>();
+                // Constant Folding Optimization
+                int stackCount = _stack.Count;
+                while (stackCount > 1)
+                {
+                    var rightTok = _stack.Pop();
+                    var opTok = _stack.Pop();
+                    var leftTok = _stack.Pop();
+                    if (rightTok.Type == Scanner.Type.INTCONST && leftTok.Type == Scanner.Type.INTCONST)
+                    {
+                        switch (opTok.Lexeme)
+                        {
+                            case "+":
+                                leftTok.Lexeme = (Int32.Parse(leftTok.Lexeme) + Int32.Parse(rightTok.Lexeme)).ToString();
+                                break;
+                            case "-":
+                                leftTok.Lexeme = (Int32.Parse(leftTok.Lexeme) - Int32.Parse(rightTok.Lexeme)).ToString();
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        expression.Add(rightTok);
+                        expression.Add(opTok);
+                    }
+                    stackCount -= 2;
+                    _stack.Push(leftTok);
+                }
+                expression.Add(_stack.Pop());
+
+                Scanner.Token firstTok = expression[expression.Count - 1];
                 string first = firstTok.Type == Scanner.Type.IDENT ? "DWORD[" + firstTok.Lexeme + "]" : firstTok.Lexeme;
                 CodeSectionAsm.AppendLine("\tmov\tesi,\t" + first);
 
-                for (int i = expression.Length - 2; i >= 0; i--)
+                for (int i = expression.Count - 2; i >= 0; i--)
                 {
                     Scanner.Token opTok = expression[i];
                     i--;
                     Scanner.Token rightTok = expression[i];
+                    Scanner.Token leftTok = expression[i + 2];
                     string right = rightTok.Type == Scanner.Type.IDENT ? "DWORD[" + rightTok.Lexeme + "]" : rightTok.Lexeme;
                     if (opTok.Type == Scanner.Type.MINUS)
                     {
@@ -1134,7 +1165,7 @@ namespace Compiler.Models
                     Scanner.Token strTok = _stack.Pop();
                     Symbol symbol = new Symbol()
                     {
-                        Identifier = "_s" + _genTempCounter,
+                        Identifier = "_s" + _genStrCounter,
                         Type = "string",
                         Scope = new Stack<int>(),
                         Store = "scalar",
@@ -1143,7 +1174,7 @@ namespace Compiler.Models
                         Value = strTok.Lexeme
                     };
                     symbol.Scope.Push(_scope);
-                    _genTempCounter++;
+                    _genStrCounter++;
                     CodeSectionAsm.Append("\tpush\t" + symbol.Identifier + "\n");
                     CodeSectionAsm.Append("\tpush\tstringPrinter\n");
                     CodeSectionAsm.Append("\tcall\t_printf\n");
@@ -1347,7 +1378,7 @@ namespace Compiler.Models
             {
                 Symbol symbol = new Symbol()
                 {
-                    Identifier = "_s" + _genTempCounter,
+                    Identifier = "_s" + _genStrCounter,
                     Type = "string",
                     Scope = new Stack<int>(),
                     Store = "scalar",
@@ -1356,7 +1387,7 @@ namespace Compiler.Models
                     Value = varToWrite.Lexeme
                 };
                 symbol.Scope.Push(_scope);
-                _genTempCounter++;
+                _genStrCounter++;
                 CodeSectionAsm.Append("\tpush\t" + symbol.Identifier + "\n");
                 CodeSectionAsm.Append("\tpush\tstringPrinter\n");
                 CodeSectionAsm.Append("\tcall\t_printf\n");
@@ -1760,30 +1791,49 @@ namespace Compiler.Models
             // create temporary variable to store the answer
             Symbol tempSymbol = new Symbol()
             {
-                Identifier = "_temp" + _genTempCounter,
+                Identifier = "_i" + _genIntCounter,
                 Type = "int",
                 Scope = new Stack<int>(),
                 Line = opTok.Line,
                 Column = opTok.Column
             };
-            _genTempCounter++;
+            _genIntCounter++;
             tempSymbol.Scope.Push(_scope);
             SymbolTable.Add(tempSymbol.Identifier, tempSymbol);
             if (opTok.Type == Scanner.Type.ASTRSK)
             {
-                CodeSectionAsm.AppendLine("\tmov\tedi,\t" + left);
-                CodeSectionAsm.AppendLine("\timul\tedi,\t" + right);
-                CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\tedi");
+                // Constant Folding Optimization
+                if (rightTok.Type == Scanner.Type.INTCONST && leftTok.Type == Scanner.Type.INTCONST)
+                {
+                    leftTok.Lexeme = (Int32.Parse(leftTok.Lexeme) * Int32.Parse(rightTok.Lexeme)).ToString();
+                    _stack.Push(leftTok);
+                }
+                else
+                {
+                    CodeSectionAsm.AppendLine("\tmov\tedi,\t" + left);
+                    CodeSectionAsm.AppendLine("\timul\tedi,\t" + right);
+                    CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\tedi");
+                    _stack.Push(new Scanner.Token() { Type = Scanner.Type.IDENT, Lexeme = tempSymbol.Identifier, Column = opTok.Column, Line = opTok.Line });
+                }
             }
             else if (opTok.Type == Scanner.Type.SLASH)
             {
-                CodeSectionAsm.AppendLine("\txor\tedx,\tedx");
-                CodeSectionAsm.AppendLine("\tmov\teax,\t" + left);
-                CodeSectionAsm.AppendLine("\tmov\tecx," + right);
-                CodeSectionAsm.AppendLine("\tdiv\tecx");
-                CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\teax");
+                // Constant Folding Optimization
+                if (rightTok.Type == Scanner.Type.INTCONST && leftTok.Type == Scanner.Type.INTCONST)
+                {
+                    leftTok.Lexeme = (Int32.Parse(leftTok.Lexeme) / Int32.Parse(rightTok.Lexeme)).ToString();
+                    _stack.Push(leftTok);
+                }
+                else
+                {
+                    CodeSectionAsm.AppendLine("\txor\tedx,\tedx");
+                    CodeSectionAsm.AppendLine("\tmov\teax,\t" + left);
+                    CodeSectionAsm.AppendLine("\tmov\tecx,\t" + right);
+                    CodeSectionAsm.AppendLine("\tdiv\tecx");
+                    CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\teax");
+                    _stack.Push(new Scanner.Token() { Type = Scanner.Type.IDENT, Lexeme = tempSymbol.Identifier, Column = opTok.Column, Line = opTok.Line });
+                }
             }
-            _stack.Push(new Scanner.Token() { Type = Scanner.Type.IDENT, Lexeme = tempSymbol.Identifier, Column = opTok.Column, Line = opTok.Line });
             if (!MultiplyFactor())
             {
                 WriteError("MultiplyFactor");
@@ -1857,28 +1907,47 @@ namespace Compiler.Models
                     // create temporary variable to store the answer
                     Symbol tempSymbol = new Symbol()
                     {
-                        Identifier = "_temp" + _genTempCounter,
+                        Identifier = "_i" + _genIntCounter,
                         Type = "int",
                         Scope = new Stack<int>(),
                         Line = opTok.Line,
                         Column = opTok.Column
                     };
-                    _genTempCounter++;
+                    _genIntCounter++;
                     tempSymbol.Scope.Push(_scope);
                     SymbolTable.Add(tempSymbol.Identifier, tempSymbol);
                     if (opTok.Type == Scanner.Type.MINUS)
                     {
-                        CodeSectionAsm.AppendLine("\tmov\tesi,\t" + left);
-                        CodeSectionAsm.AppendLine("\tsub\tesi,\t" + right);
-                        CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\tesi");
+                        // Constant Folding Optimization
+                        if (rightTok.Type == Scanner.Type.INTCONST && leftTok.Type == Scanner.Type.INTCONST)
+                        {
+                            leftTok.Lexeme = (Int32.Parse(leftTok.Lexeme) - Int32.Parse(rightTok.Lexeme)).ToString();
+                            _stack.Push(leftTok);
+                        }
+                        else
+                        {
+                            CodeSectionAsm.AppendLine("\tmov\tesi,\t" + left);
+                            CodeSectionAsm.AppendLine("\tsub\tesi,\t" + right);
+                            CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\tesi");
+                            _stack.Push(new Scanner.Token() { Type = Scanner.Type.IDENT, Lexeme = tempSymbol.Identifier, Column = opTok.Column, Line = opTok.Line });
+                        }
                     }
                     else if (opTok.Type == Scanner.Type.PLUS)
                     {
-                        CodeSectionAsm.AppendLine("\tmov\tesi,\t" + left);
-                        CodeSectionAsm.AppendLine("\tadd\tesi,\t" + right);
-                        CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\tesi");
+                        // Constant Folding Optimization
+                        if (rightTok.Type == Scanner.Type.INTCONST && leftTok.Type == Scanner.Type.INTCONST)
+                        {
+                            leftTok.Lexeme = (Int32.Parse(leftTok.Lexeme) + Int32.Parse(rightTok.Lexeme)).ToString();
+                            _stack.Push(leftTok);
+                        }
+                        else
+                        {
+                            CodeSectionAsm.AppendLine("\tmov\tesi,\t" + left);
+                            CodeSectionAsm.AppendLine("\tadd\tesi,\t" + right);
+                            CodeSectionAsm.AppendLine("\tmov\tDWORD[" + tempSymbol.Identifier + "],\tesi");
+                            _stack.Push(new Scanner.Token() { Type = Scanner.Type.IDENT, Lexeme = tempSymbol.Identifier, Column = opTok.Column, Line = opTok.Line });
+                        }
                     }
-                    _stack.Push(new Scanner.Token() { Type = Scanner.Type.IDENT, Lexeme = tempSymbol.Identifier, Column = opTok.Column, Line = opTok.Line });
                 }
                 else
                 {
