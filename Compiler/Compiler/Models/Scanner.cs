@@ -51,7 +51,14 @@ namespace Compiler.Models
 
         public Scanner(string filePath)
         {
-            Reader = new StreamReader(filePath);
+            try
+            {
+                Reader = new StreamReader(filePath);
+            }
+            catch (IOException e)
+            {
+                Console.WriteLine("Error opening file");
+            }
             _lineNum = 0;
             _lineText = null;
         }

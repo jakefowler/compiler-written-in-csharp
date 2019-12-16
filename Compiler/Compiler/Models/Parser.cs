@@ -13,10 +13,10 @@ namespace Compiler.Models
         private StreamWriter _errorFile;
         private readonly string _path;
         private Stack<Scanner.Token> _stack;
-        private int _scope = 0;
+        private int _scope;
         // used to generate a unique name for temporary values like string constants and expressions
-        private int _genStrCounter = 0;
-        private int _genIntCounter = 0;
+        private int _genStrCounter;
+        private int _genIntCounter;
         public Hashtable SymbolTable { get; set; }
         public Scanner.Token CurrentToken { get; set; }
         public Scanner.Token NextToken { get; set; }
@@ -1073,12 +1073,12 @@ namespace Compiler.Models
                 WriteError("Expression");
                 return false;
             }
-            if (_stack.Count > 1)
+            if (_stack.Count > 2)
             {
                 List<Scanner.Token> expression = new List<Scanner.Token>();
                 // Constant Folding Optimization
                 int stackCount = _stack.Count;
-                while (stackCount > 1)
+                while (stackCount > 2)
                 {
                     var rightTok = _stack.Pop();
                     var opTok = _stack.Pop();
@@ -1136,7 +1136,7 @@ namespace Compiler.Models
                     CodeSectionAsm.AppendLine("\tmov\tDWORD[" + varToAssign.Lexeme + "],\tesi");
                 }
             }
-            else
+            else if (_stack.Count == 1)
             {
                 // just regular assign
                 if (_stack.Peek().Type == Scanner.Type.INTCONST)

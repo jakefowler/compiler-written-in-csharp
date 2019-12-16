@@ -9,7 +9,7 @@ namespace Compiler
     {
         static void Main(string[] args)
         {
-            string filename = "mathTest.pas";
+            string filename = "sampleE.pas";
             bool runScanner = false;
             bool runParser = false;
             bool verbose = false;
