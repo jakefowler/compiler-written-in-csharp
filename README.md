@@ -1,6 +1,6 @@
 # Pascal Like Compiler Written in C#
 
-#### Scanner
+### Scanner
 
 * Breaks the progam up into tokens
 * Takes this
@@ -109,3 +109,32 @@ Token Type: ENDTOK      Lexeme: end     Line#: 20       Column#: 1
 Token Type: DOT         Lexeme: .       Line#: 20       Column#: 4
 Token Type: EOFTOK      Lexeme:         Line#: 20       Column#: 0
 ```
+
+### Parser
+
+I created a recursive descent parser that verifies that the program is within the language.
+This uses the scanner to get one token at a time until the end of the program or until an error is found.
+If there is an error the parser outputs an error file with the line, column, token, and type along with other useful information.
+
+
+### Symbol Table
+
+I implemented the [symbol table](https://en.wikipedia.org/wiki/Symbol_table) as a hashtable with the key as the identifier and the value containing information about the symbol.
+As the program is parsed, symbols are added to the table such as variables, procedures, and temporary variables for string constants and intermediate values.
+
+### Optimizations
+
+I added [constant folding](https://en.wikipedia.org/wiki/Constant_folding) to optimize expressions that can be solved at compile time and stored as a value saving computation at runtime.
+
+### Assembly Output
+
+This is all translated into assembly as output.
+
+#### NASM
+
+I output assembly to be compiled and linked with [NASM](https://en.wikipedia.org/wiki/Netwide_Assembler).
+The program can then be executed.
+
+
+
+
