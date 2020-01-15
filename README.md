@@ -125,6 +125,52 @@ As the program is parsed, symbols are added to the table such as variables, proc
 ### Optimizations
 
 I added [constant folding](https://en.wikipedia.org/wiki/Constant_folding) to optimize expressions that can be solved at compile time and stored as a value saving computation at runtime.
+With a simple program like this - 
+```
+program optimizationDemo;
+
+var
+	val1 : int;
+	
+begin
+	val1 := (((1 + 9) * (6 + 4)) - (9 * 10)) + 90;
+	write (val1)
+end.
+```
+The output without optimizations is this - 
+```
+	mov	esi,	1
+	add	esi,	9
+	mov	DWORD[_temp0],	esi
+	mov	esi,	6
+	add	esi,	4
+	mov	DWORD[_temp1],	esi
+	mov	edi,	DWORD[_temp0]
+	imul	edi,	DWORD[_temp1]
+	mov	DWORD[_temp2],	edi
+	mov	edi,	9
+	imul	edi,	10
+	mov	DWORD[_temp3],	edi
+	mov	esi,	DWORD[_temp2]
+	sub	esi,	DWORD[_temp3]
+	mov	DWORD[_temp4],	esi
+	mov	esi,	DWORD[_temp4]
+	add	esi,	90
+	mov	DWORD[val1],	esi
+	push	DWORD[val1]
+	push	numberPrinter
+	call	_printf
+	add	esp,	0x08
+```
+After constant folding was added the assembly instructions were reduced to this - 
+```
+	mov	esi,	100
+	mov	DWORD[val1],	esi
+	push	DWORD[val1]
+	push	numberPrinter
+	call	_printf
+	add	esp,	0x08
+```
 
 ### Assembly Output
 
