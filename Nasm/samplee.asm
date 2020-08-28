@@ -23,21 +23,21 @@ section .data USE32
 ; uninitialized data
 ;-----------------------------
 section .bss USE32
-	x:	resd	1
-	result:	resd	1
-	z:	resd	1
-	astring:	resb	128
-	_i2:	resd	1
-	_i9:	resd	1
-	_i6:	resd	1
-	_i7:	resd	1
-	_i8:	resd	1
-	_i0:	resd	1
-	_i5:	resd	1
 	_i1:	resd	1
-	_i3:	resd	1
-	_i4:	resd	1
+	_i6:	resd	1
+	_i2:	resd	1
+	result:	resd	1
+	astring:	resb	128
 	y:	resd	1
+	_i5:	resd	1
+	_i7:	resd	1
+	x:	resd	1
+	_i3:	resd	1
+	_i8:	resd	1
+	z:	resd	1
+	_i4:	resd	1
+	_i0:	resd	1
+	_i9:	resd	1
 ;-----------------------------
 ; code
 ;-----------------------------
